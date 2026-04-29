@@ -1,0 +1,48 @@
+name: object_detection
+description: "On-device object detection using MediaPipe EfficientDet-Lite TFLite models. 80 COCO classes, fully offline."
+version: 0.0.2
+
+repository: https://github.com/hugocornellier/object_detection
+homepage: https://github.com/hugocornellier/object_detection
+
+topics:
+  - tflite
+  - object-detection
+  - computer-vision
+  - flutter-plugin
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  opencv_dart: ^2.2.1+4
+  flutter_litert: ^2.4.1
+  meta: ^1.17.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/models/efficientdet_lite0.tflite
+    - assets/models/efficientdet_lite2.tflite
+    - assets/models/labelmap.txt
+
+  plugin:
+    platforms:
+      ios:
+        dartPluginClass: ObjectDetectionDart
+      android:
+        dartPluginClass: ObjectDetectionDart
+      macos:
+        pluginClass: ObjectDetectionPlugin
+      windows:
+        pluginClass: ObjectDetectionPlugin
+      linux:
+        pluginClass: ObjectDetectionPlugin

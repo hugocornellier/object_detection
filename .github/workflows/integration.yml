@@ -1,0 +1,251 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit Tests (${{ matrix.flutter-channel }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter-channel: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ matrix.flutter-channel }}
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run unit tests with coverage
+        run: flutter test --coverage
+
+      - name: Upload coverage to Codecov
+        if: matrix.flutter-channel == 'stable'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/lcov.info
+          flags: unit-tests
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  integration-macos:
+    name: Integration macOS (${{ matrix.flutter-channel }})
+    runs-on: macos-14
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter-channel: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ matrix.flutter-channel }}
+          cache: true
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: example/macos/Pods
+          key: pods-macos-${{ hashFiles('example/macos/Podfile.lock') }}
+          restore-keys: pods-macos-
+
+      - name: Install example dependencies
+        run: flutter pub get
+        working-directory: example
+
+      - name: Run integration tests
+        working-directory: example
+        run: flutter test integration_test/object_detection_integration_test.dart -d macos
+
+  integration-android:
+    name: Integration Android (${{ matrix.flutter-channel }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter-channel: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ matrix.flutter-channel }}
+          cache: true
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('example/android/**/*.gradle*', 'android/**/*.gradle*') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Install example dependencies
+        run: flutter pub get
+        working-directory: example
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run integration tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          working-directory: example
+          # Flutter Android integration tests may exit non-zero even when
+          # all tests pass (app process teardown issue). Check actual test
+          # output instead of relying on the exit code.
+          script: |
+            flutter test integration_test/object_detection_integration_test.dart -d emulator-5554 2>&1 | tee "$RUNNER_TEMP/android.log"
+            if grep -q "Some tests failed" "$RUNNER_TEMP/android.log"; then exit 1; fi
+            grep -qE "(All tests passed|[0-9]+ tests? passed)" "$RUNNER_TEMP/android.log"
+
+  integration-ios:
+    name: Integration iOS (${{ matrix.flutter-channel }})
+    runs-on: macos-14
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter-channel: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ matrix.flutter-channel }}
+          cache: true
+
+      - name: Disable Swift Package Manager
+        run: flutter config --no-enable-swift-package-manager
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: example/ios/Pods
+          key: pods-ios-${{ hashFiles('example/ios/Podfile.lock') }}
+          restore-keys: pods-ios-
+
+      - name: Install example dependencies
+        run: flutter pub get
+        working-directory: example
+
+      - name: Boot iOS simulator
+        run: |
+          xcrun simctl list devicetypes | grep -E "iPhone-1[5-7]" | head -5
+          DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 1[5-7]" | head -1 | awk -F '[()]' '{print $2}')
+          echo "Booting $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+
+      - name: Run integration tests on iOS simulator
+        working-directory: example
+        run: flutter test integration_test/object_detection_integration_test.dart -d "iPhone"
+
+  integration-linux:
+    name: Integration Linux (${{ matrix.flutter-channel }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter-channel: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ninja-build libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev xvfb
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ matrix.flutter-channel }}
+          cache: true
+
+      - name: Cache opencv_dart native build
+        uses: actions/cache@v4
+        with:
+          path: example/.dart_tool/hooks_runner/shared
+          key: opencv-native-linux-${{ hashFiles('pubspec.lock', 'example/pubspec.lock') }}
+          restore-keys: opencv-native-linux-
+
+      - name: Install example dependencies
+        run: flutter pub get
+        working-directory: example
+
+      - name: Start Xvfb
+        run: |
+          /usr/bin/Xvfb :99 -screen 0 1280x1024x24 -ac +extension GLX +render -noreset &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          echo "LIBGL_ALWAYS_SOFTWARE=1" >> "$GITHUB_ENV"
+          echo "GDK_BACKEND=x11" >> "$GITHUB_ENV"
+
+      - name: Run integration tests
+        working-directory: example
+        run: |
+          set -e
+          flutter test integration_test/object_detection_integration_test.dart -d linux 2>&1 | tee "$RUNNER_TEMP/linux.log" || true
+          if grep -q "Some tests failed" "$RUNNER_TEMP/linux.log"; then exit 1; fi
+          grep -qE "(All tests passed|[0-9]+ tests? passed)" "$RUNNER_TEMP/linux.log"
+
+  integration-windows:
+    name: Integration Windows (${{ matrix.flutter-channel }})
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter-channel: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ matrix.flutter-channel }}
+          cache: true
+
+      - name: Cache opencv_dart native build
+        uses: actions/cache@v4
+        with:
+          path: example/.dart_tool/hooks_runner/shared
+          key: opencv-native-windows-${{ hashFiles('pubspec.lock', 'example/pubspec.lock') }}
+          restore-keys: opencv-native-windows-
+
+      - name: Install example dependencies
+        run: flutter pub get
+        working-directory: example
+
+      - name: Run integration tests
+        working-directory: example
+        run: flutter test integration_test/object_detection_integration_test.dart -d windows

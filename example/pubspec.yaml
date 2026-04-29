@@ -1,0 +1,31 @@
+name: object_detection_example
+description: Example app for object_detection
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  opencv_dart: 2.2.1+4
+  image_picker: ^1.2.1
+  file_selector: ^1.1.0
+  file_selector_macos: ^0.9.5
+  object_detection:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_litert: ^2.4.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/samples/

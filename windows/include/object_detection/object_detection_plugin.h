@@ -1,0 +1,16 @@
+#ifndef OBJECT_DETECTION_PUBLIC_PLUGIN_H_
+#define OBJECT_DETECTION_PUBLIC_PLUGIN_H_
+
+#include <flutter_windows.h>
+
+#ifdef FLUTTER_PLUGIN_IMPL
+#define FLUTTER_PLUGIN_EXPORT __declspec(dllexport)
+#else
+#define FLUTTER_PLUGIN_EXPORT __declspec(dllimport)
+#endif
+
+// C++ signature is fine (no extern "C") since the registrant is C++ and includes this header.
+FLUTTER_PLUGIN_EXPORT void ObjectDetectionPluginRegisterWithRegistrar(
+    FlutterDesktopPluginRegistrarRef registrar);
+
+#endif  // OBJECT_DETECTION_PUBLIC_PLUGIN_H_

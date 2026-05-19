@@ -140,7 +140,14 @@ most one.
 
 ## Live Camera Detection
 
-For real-time object detection with a camera feed, use `detectFromCameraImage`. It auto-detects YUV420 (NV12 / NV21 / I420) and desktop BGRA/RGBA layouts, and the `cvtColor`, optional `rotate`, and `maxDim` downscale all run inside the detector's existing isolate: the UI thread is never blocked by OpenCV work.
+For real-time object detection from a camera feed, use `detectFromCameraImage`. All processing runs off the UI thread.
+
+> **Desktop (Windows / macOS / Linux):** The default `camera` package does not include a streaming implementation for desktop platforms. You must also add [`camera_desktop`](https://pub.dev/packages/camera_desktop) to your `pubspec.yaml`, otherwise `startImageStream` throws `UnimplementedError: onStreamedFrameAvailable() is not implemented`.
+> ```yaml
+> dependencies:
+>   camera: ^0.12.0
+>   camera_desktop: ^1.1.4   # required for Windows, macOS, and Linux streaming
+> ```
 
 ```dart
 import 'package:camera/camera.dart';
@@ -153,27 +160,26 @@ final camera = CameraController(
   cameras.first,
   ResolutionPreset.medium,
   enableAudio: false,
-  imageFormatGroup: ImageFormatGroup.yuv420,
+  imageFormatGroup: ImageFormatGroup.yuv420, // prevents JPEG fallback on Android; ignored on desktop
 );
 await camera.initialize();
 
 camera.startImageStream((CameraImage image) async {
   final detections = await detector.detectFromCameraImage(
     image,
-    // rotation: CameraFrameRotation.cw90, // based on device orientation
+    // rotation: rotationForFrame(...), // recommended on Android/iOS
     options: const ObjectDetectorOptions(scoreThreshold: 0.5, maxResults: 10),
-    maxDim: 640, // optional in-isolate downscale before inference
+    maxDim: 640,
   );
   // Process detections...
 });
 ```
 
-**Tips for camera detection:**
-- `detectFromCameraImage` replaces the old `packYuv420` + manual `cv.cvtColor` + `cv.rotate` dance in one call; no `cv.Mat` on the UI thread.
-- Pass `rotation:` so the detector sees upright frames (Android back/front + device orientation logic); on iOS the camera plugin pre-rotates so this is often null.
-- Pass `maxDim:` (e.g. 640) to downscale in-isolate; the detection model internally resizes to 320–448 px, so full-res frames just waste IPC bandwidth.
+Tips:
+- Pass `rotation:` on Android/iOS so the detector sees upright frames. Use `rotationForFrame(...)` to compute the correct value from sensor orientation and device orientation. On desktop frames are always upright so omit it.
+- Pass `maxDim: 640` to downscale frames before inference. Recommended: full-res frames waste bandwidth since the model input is much smaller.
 - Mirror the overlay on the front camera to match `CameraPreview`'s auto-mirrored texture.
-- For advanced reuse, the underlying two-step API is `prepareCameraFrame(...)` + `detectFromCameraFrame(...)`.
+- For advanced use, `prepareCameraFrame(...)` + `detectFromCameraFrame(...)` is the lower-level two-step API.
 
 ## Background Processing
 

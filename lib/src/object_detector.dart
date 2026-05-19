@@ -259,14 +259,14 @@ class ObjectDetector {
     Object cameraImage, {
     ObjectDetectorOptions options = ObjectDetectorOptions.defaults,
     CameraFrameRotation? rotation,
-    bool isBgra = true,
+    bool? isBgra,
     int? maxDim,
   }) async {
     _requireReady();
     final frame = prepareCameraFrameFromImage(
       cameraImage,
       rotation: rotation,
-      isBgra: isBgra,
+      isBgra: isBgra ?? Platform.isMacOS,
     );
     if (frame == null) return const <DetectedObject>[];
     return detectFromCameraFrame(frame, options: options, maxDim: maxDim);

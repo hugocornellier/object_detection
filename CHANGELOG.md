@@ -1,3 +1,8 @@
+## 0.1.0
+
+* Update flutter_litert -> 2.8.0
+* Complete Swift Package Manager migration: example apps build via SPM without CocoaPods
+
 ## 0.0.8
 
 * Remove unused Darwin podspecs for Dart-only iOS/macOS plugin registration.

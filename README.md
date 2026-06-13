@@ -146,7 +146,7 @@ For real-time object detection from a camera feed, use `detectFromCameraImage`. 
 > ```yaml
 > dependencies:
 >   camera: ^0.12.0
->   camera_desktop: ^1.1.6   # required for Windows, macOS, and Linux streaming
+>   camera_desktop: ^1.2.0   # required for Windows, macOS, and Linux streaming
 > ```
 
 ```dart

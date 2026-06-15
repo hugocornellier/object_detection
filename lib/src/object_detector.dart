@@ -307,11 +307,26 @@ class ObjectDetector {
   static Uint8List _extractBytes(dynamic message) =>
       (message['bytes'] as TransferableTypedData).materialize().asUint8List();
 
+  /// Reconstructs a [cv.Mat] from raw bytes WITHOUT the boxed, double-copy
+  /// `cv.Mat.fromList` path (it takes a `List<num>`, boxing every byte and
+  /// copying twice, ~100x slower for full frames). Allocates once with
+  /// `Mat.create` and bulk-copies into the Mat's contiguous native data view.
+  static cv.Mat _matFromBytes(
+    int rows,
+    int cols,
+    cv.MatType type,
+    Uint8List bytes,
+  ) {
+    final mat = cv.Mat.create(rows: rows, cols: cols, type: type);
+    mat.data.setRange(0, bytes.length, bytes);
+    return mat;
+  }
+
   static cv.Mat _matFromMessage(Map message, Uint8List bytes) {
     final int width = message['width'] as int;
     final int height = message['height'] as int;
     final int matTypeValue = message['matType'] as int;
-    return cv.Mat.fromList(height, width, cv.MatType(matTypeValue), bytes);
+    return _matFromBytes(height, width, cv.MatType(matTypeValue), bytes);
   }
 
   /// Builds the isolate-request field map for a [CameraFrame] payload, merged
@@ -374,7 +389,7 @@ class ObjectDetector {
       case CameraFrameConversion.bgra2bgr:
       case CameraFrameConversion.rgba2bgr:
         final bgraOrRgba =
-            cv.Mat.fromList(height, strideCols, cv.MatType.CV_8UC4, bytes);
+            _matFromBytes(height, strideCols, cv.MatType.CV_8UC4, bytes);
         cv.Mat current = strideCols != width
             ? bgraOrRgba.region(cv.Rect(0, 0, width, height))
             : bgraOrRgba;
@@ -410,7 +425,7 @@ class ObjectDetector {
       case CameraFrameConversion.yuv2bgrNv12:
       case CameraFrameConversion.yuv2bgrNv21:
       case CameraFrameConversion.yuv2bgrI420:
-        final yuvMat = cv.Mat.fromList(
+        final yuvMat = _matFromBytes(
           height + height ~/ 2,
           width,
           cv.MatType.CV_8UC1,

@@ -123,7 +123,9 @@ class ObjectDetector {
       _worker = worker;
     } catch (_) {
       if (worker.isReady) {
-        await worker.dispose();
+        // Graceful: let the detection isolate free its native model instead of
+        // being force-killed mid-cleanup (the init-failure path leaked it).
+        await worker.disposeGracefully();
       }
       rethrow;
     }
@@ -277,10 +279,17 @@ class ObjectDetector {
   /// After calling dispose, you must call [initialize] again before
   /// running any detections.
   Future<void> dispose() async {
+    // Flip ready-state synchronously (before any await) so an un-awaited
+    // dispose() immediately reports not-ready: a later call throws StateError
+    // via the _requireReady guard, and a second dispose() is a no-op rather
+    // than disposing the same worker twice.
     final worker = _worker;
     _worker = null;
     if (worker != null && worker.isReady) {
-      await worker.dispose();
+      // Graceful shutdown: await the isolate's dispose ack before force-killing
+      // so it can free its native TFLite interpreter instead of being reaped
+      // mid-cleanup by Isolate.kill(priority: immediate).
+      await worker.disposeGracefully();
     }
   }
 
@@ -493,94 +502,70 @@ class ObjectDetector {
       return;
     }
 
-    workerReceivePort.listen((message) async {
-      if (message is! Map) return;
+    ObjectDetectorOptions parseOptions(Map message) =>
+        ObjectDetectorOptions.fromMap(
+          Map<String, dynamic>.from(message['options'] as Map),
+        );
 
-      final int? id = message['id'] as int?;
-      final String? op = message['op'] as String?;
-
-      if (id == null || op == null) return;
-
+    Future<Object?> runDetect(
+      _ObjectDetectorCore c,
+      cv.Mat mat,
+      ObjectDetectorOptions options,
+    ) async {
       try {
-        switch (op) {
-          case 'detect':
-            if (core == null) {
-              mainSendPort.send({
-                'id': id,
-                'error': 'ObjectDetectorCore not initialized in isolate',
-              });
-              return;
-            }
-            final Uint8List imageBytes = _extractBytes(message);
-            final options = ObjectDetectorOptions.fromMap(
-              Map<String, dynamic>.from(message['options'] as Map),
-            );
-            final cv.Mat mat = cv.imdecode(imageBytes, cv.IMREAD_COLOR);
-            try {
-              final dets = await core!.detectDirect(mat, options);
-              mainSendPort.send({
-                'id': id,
-                'result': dets.map((d) => d.toMap()).toList(),
-              });
-            } finally {
-              mat.dispose();
-            }
-
-          case 'detectMat':
-            if (core == null) {
-              mainSendPort.send({
-                'id': id,
-                'error': 'ObjectDetectorCore not initialized in isolate',
-              });
-              return;
-            }
-            final Uint8List matBytes = _extractBytes(message);
-            final options = ObjectDetectorOptions.fromMap(
-              Map<String, dynamic>.from(message['options'] as Map),
-            );
-            final mat = _matFromMessage(message, matBytes);
-            try {
-              final dets = await core!.detectDirect(mat, options);
-              mainSendPort.send({
-                'id': id,
-                'result': dets.map((d) => d.toMap()).toList(),
-              });
-            } finally {
-              mat.dispose();
-            }
-
-          case 'detectCameraFrame':
-            if (core == null) {
-              mainSendPort.send({
-                'id': id,
-                'error': 'ObjectDetectorCore not initialized in isolate',
-              });
-              return;
-            }
-            final Uint8List frameBytes = _extractBytes(message);
-            final options = ObjectDetectorOptions.fromMap(
-              Map<String, dynamic>.from(message['options'] as Map),
-            );
-            final frameMat = _matFromCameraFrameMessage(message, frameBytes);
-            try {
-              final dets = await core!.detectDirect(frameMat, options);
-              mainSendPort.send({
-                'id': id,
-                'result': dets.map((d) => d.toMap()).toList(),
-              });
-            } finally {
-              frameMat.dispose();
-            }
-
-          case 'dispose':
-            core?.dispose();
-            core = null;
-            workerReceivePort.close();
-        }
-      } catch (e, st) {
-        mainSendPort.send({'id': id, 'error': '$e\n$st'});
+        final dets = await c.detectDirect(mat, options);
+        return dets.map((d) => d.toMap()).toList();
+      } finally {
+        mat.dispose();
       }
-    });
+    }
+
+    serveIsolateRpc(
+      mainSendPort: mainSendPort,
+      receivePort: workerReceivePort,
+      handlers: {
+        'detect': (message) {
+          final c = core;
+          if (c == null) {
+            throw IsolateRpcExactError(
+              'ObjectDetectorCore not initialized in isolate',
+            );
+          }
+          final mat = cv.imdecode(_extractBytes(message), cv.IMREAD_COLOR);
+          return runDetect(c, mat, parseOptions(message));
+        },
+        'detectMat': (message) {
+          final c = core;
+          if (c == null) {
+            throw IsolateRpcExactError(
+              'ObjectDetectorCore not initialized in isolate',
+            );
+          }
+          return runDetect(
+            c,
+            _matFromMessage(message, _extractBytes(message)),
+            parseOptions(message),
+          );
+        },
+        'detectCameraFrame': (message) {
+          final c = core;
+          if (c == null) {
+            throw IsolateRpcExactError(
+              'ObjectDetectorCore not initialized in isolate',
+            );
+          }
+          return runDetect(
+            c,
+            _matFromCameraFrameMessage(message, _extractBytes(message)),
+            parseOptions(message),
+          );
+        },
+      },
+      onDispose: () async {
+        core?.dispose();
+        core = null;
+      },
+    );
   }
 }
 

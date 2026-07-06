@@ -172,3 +172,218 @@ Rect boundsOf(Iterable<Offset> pts) {
   }
   return Rect.fromLTRB(minX, minY, maxX, maxY);
 }
+
+/// Custom painter for the live-camera feed. Bounding boxes come in the
+/// detection image's pixel space ([imageSize], post-rotation) and are mapped
+/// onto the display with a cover-fit transform plus optional horizontal mirror
+/// (front camera). Mirrors what [DetectionsPainter] does for still images, but
+/// without the still-image letterbox rect (the camera preview is cover-fitted).
+class ObjectCameraDetectionPainter extends CustomPainter {
+  /// Detected objects to render.
+  final List<DetectedObject> detections;
+
+  /// Size of the image used for detection (post-rotation). Detection box
+  /// coordinates are expressed in this pixel space.
+  final Size imageSize;
+
+  /// Whether the overlay should be mirrored horizontally (front camera).
+  final bool mirrorHorizontally;
+
+  /// Whether to draw class label + score text.
+  final bool showLabels;
+
+  /// Stroke thickness for boxes.
+  final double boundingBoxThickness;
+
+  /// Font size for labels.
+  final double labelFontSize;
+
+  /// Override color for boxes. If null, [colorForClass] is used per detection.
+  final Color? boundingBoxColor;
+
+  /// Color for the label text.
+  final Color labelTextColor;
+
+  /// Creates a live-camera detection painter.
+  ObjectCameraDetectionPainter({
+    required this.detections,
+    required this.imageSize,
+    required this.mirrorHorizontally,
+    this.showLabels = true,
+    this.boundingBoxThickness = 3.0,
+    this.labelFontSize = 13.0,
+    this.boundingBoxColor,
+    this.labelTextColor = Colors.white,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (detections.isEmpty) return;
+
+    final double sw = imageSize.width;
+    final double sh = imageSize.height;
+    if (sw <= 0 || sh <= 0) return;
+
+    // Cover-fit: scale so the source fills the view, centering the overflowing
+    // axis. Matches CameraPreview's BoxFit.cover behaviour.
+    final double sourceAspect = sw / sh;
+    final double viewAspect = size.width / size.height;
+    late final double scale;
+    late final double offsetX;
+    late final double offsetY;
+    if (sourceAspect > viewAspect) {
+      scale = size.height / sh;
+      offsetX = (size.width - sw * scale) / 2;
+      offsetY = 0.0;
+    } else {
+      scale = size.width / sw;
+      offsetX = 0.0;
+      offsetY = (size.height - sh * scale) / 2;
+    }
+
+    double mapX(double x) {
+      final double raw = x * scale + offsetX;
+      return mirrorHorizontally ? size.width - raw : raw;
+    }
+
+    double mapY(double y) => y * scale + offsetY;
+
+    for (final DetectedObject obj in detections) {
+      final Color color = boundingBoxColor ?? colorForClass(obj.category.index);
+      final BoundingBox bb = obj.boundingBox;
+
+      final double x1 = mapX(bb.topLeft.x);
+      final double x2 = mapX(bb.bottomRight.x);
+      final double y1 = mapY(bb.topLeft.y);
+      final double y2 = mapY(bb.bottomRight.y);
+      final Rect rect = Rect.fromLTRB(
+        math.min(x1, x2),
+        math.min(y1, y2),
+        math.max(x1, x2),
+        math.max(y1, y2),
+      );
+
+      final Paint boxPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = boundingBoxThickness
+        ..color = color;
+      canvas.drawRect(rect, boxPaint);
+
+      if (showLabels) {
+        final String text =
+            '${obj.categoryName} ${(obj.score * 100).toStringAsFixed(0)}%';
+        final TextPainter tp = TextPainter(
+          text: TextSpan(
+            text: text,
+            style: TextStyle(
+              color: labelTextColor,
+              fontSize: labelFontSize,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        const double padX = 4.0;
+        const double padY = 2.0;
+        final double tagW = tp.width + padX * 2;
+        final double tagH = tp.height + padY * 2;
+        double tagLeft = rect.left;
+        double tagTop = rect.top - tagH;
+        if (tagTop < 0) tagTop = rect.top;
+        if (tagLeft < 0) tagLeft = 0;
+        if (tagLeft + tagW > size.width) tagLeft = size.width - tagW;
+        final Rect tagRect = Rect.fromLTWH(tagLeft, tagTop, tagW, tagH);
+        canvas.drawRect(
+          tagRect,
+          Paint()
+            ..color = color.withAlpha(220)
+            ..style = PaintingStyle.fill,
+        );
+        tp.paint(canvas, Offset(tagLeft + padX, tagTop + padY));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant ObjectCameraDetectionPainter old) =>
+      old.detections != detections ||
+      old.imageSize != imageSize ||
+      old.mirrorHorizontally != mirrorHorizontally ||
+      old.showLabels != showLabels ||
+      old.boundingBoxThickness != boundingBoxThickness ||
+      old.boundingBoxColor != boundingBoxColor;
+}
+
+/// Composites a [cameraPreview] with a bounding-box overlay for live object
+/// detection. The preview is cover-fitted inside an [AspectRatio] box and the
+/// [ObjectCameraDetectionPainter] draws detection boxes on top.
+///
+/// [cameraPreview] is passed in as a plain [Widget] (typically a
+/// `CameraPreview`) so this package does not depend on the `camera` plugin.
+class ObjectDetectionCameraOverlay extends StatelessWidget {
+  /// The camera preview widget (typically a `CameraPreview`).
+  final Widget cameraPreview;
+
+  /// Aspect ratio used for the display [AspectRatio] box. Often the inverse of
+  /// the raw camera aspect ratio when the device is in portrait.
+  final double displayAspectRatio;
+
+  /// Whether the detection overlay should be mirrored horizontally (usually
+  /// true for front cameras on Android).
+  final bool mirrorHorizontally;
+
+  /// Detected objects to draw.
+  final List<DetectedObject> detections;
+
+  /// Size of the image used for detection (post-rotation). The painter is
+  /// skipped when null.
+  final Size? imageSize;
+
+  /// Whether to draw class label + score text.
+  final bool showLabels;
+
+  /// Override color for boxes. If null, [colorForClass] is used per detection.
+  final Color? boundingBoxColor;
+
+  /// Stroke thickness for boxes.
+  final double boundingBoxThickness;
+
+  /// Creates a live-camera overlay.
+  const ObjectDetectionCameraOverlay({
+    super.key,
+    required this.cameraPreview,
+    required this.displayAspectRatio,
+    required this.mirrorHorizontally,
+    required this.detections,
+    this.imageSize,
+    this.showLabels = true,
+    this.boundingBoxColor,
+    this.boundingBoxThickness = 3.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: AspectRatio(
+        aspectRatio: displayAspectRatio,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            cameraPreview,
+            if (imageSize != null)
+              CustomPaint(
+                painter: ObjectCameraDetectionPainter(
+                  detections: detections,
+                  imageSize: imageSize!,
+                  mirrorHorizontally: mirrorHorizontally,
+                  showLabels: showLabels,
+                  boundingBoxColor: boundingBoxColor,
+                  boundingBoxThickness: boundingBoxThickness,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -5,9 +5,14 @@
 <a href="https://dart.dev"><img src="https://img.shields.io/badge/language-Dart-blue" alt="Language: Dart"></a>
 <br>
 <a href="https://pub.dev/packages/object_detection"><img src="https://img.shields.io/pub/v/object_detection?label=pub.dev&labelColor=333940&logo=dart" alt="Pub Version"></a>
+<a href="https://pub.dev/packages/object_detection/score"><img src="https://img.shields.io/pub/points/object_detection?color=2E8B57&label=pub%20points" alt="pub points"></a>
 <a href="https://github.com/hugocornellier/object_detection/actions/workflows/build.yml"><img src="https://github.com/hugocornellier/object_detection/actions/workflows/build.yml/badge.svg" alt="CI"></a>
 <a href="https://github.com/hugocornellier/object_detection/actions/workflows/integration.yml"><img src="https://github.com/hugocornellier/object_detection/actions/workflows/integration.yml/badge.svg" alt="Tests"></a>
 <a href="https://github.com/hugocornellier/object_detection/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-007A88.svg?logo=apache" alt="License"></a>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/object-detection-demo.webp" alt="Real-time on-device object detection (COCO) running on iPhone, built with object_detection and flutter_litert" width="640">
 </p>
 
 Flutter implementation of Google's [MediaPipe Object Detector](https://ai.google.dev/edge/mediapipe/solutions/vision/object_detector) using LiteRT (formerly TensorFlow Lite). Detects 80 COCO object classes (person, car, cat, dog, ...) with bounding boxes and confidence scores. Completely local: no remote API, just pure on-device, offline detection.
@@ -47,12 +52,14 @@ Already have bytes (from a file or the network)? Use `detect(imageBytes)`. For l
 
 ## Models
 
-All TFLite models are sourced from Google's [MediaPipe](https://ai.google.dev/edge/mediapipe/solutions/vision/object_detector) framework:
+All TFLite models are sourced from Google's [MediaPipe](https://ai.google.dev/edge/mediapipe/solutions/vision/object_detector) framework. Google publishes no standalone model card for the EfficientDet-Lite object detectors, so the underlying [EfficientDet paper](https://arxiv.org/abs/1911.09070) is archived in [`doc/model_cards/`](doc/model_cards/):
 
-| Model | File | Input | Best For |
-|-------|------|-------|----------|
-| EfficientDet-Lite0 (default) | `efficientdet_lite0.tflite` | 320×320 | Balanced speed/accuracy |
-| EfficientDet-Lite2 | `efficientdet_lite2.tflite` | 448×448 | Higher accuracy, slower |
+| Model | File | Input | Best For | Model Card |
+|-------|------|-------|----------|------------|
+| EfficientDet-Lite0 (default) | `efficientdet_lite0.tflite` | 320×320 | Balanced speed/accuracy | [efficientdet_paper.pdf](doc/model_cards/efficientdet_paper.pdf) · [arXiv 1911.09070](https://arxiv.org/abs/1911.09070) |
+| EfficientDet-Lite2 | `efficientdet_lite2.tflite` | 448×448 | Higher accuracy, slower | [efficientdet_paper.pdf](doc/model_cards/efficientdet_paper.pdf) · [arXiv 1911.09070](https://arxiv.org/abs/1911.09070) |
+
+`efficientdet_lite0.tflite` (13,836,895 bytes, SHA-256 `40338edf5ec70d43e318b0a716a84d4564cd1802759a7a07170c7e43796dbf58`) and `efficientdet_lite2.tflite` (23,096,891 bytes, SHA-256 `ad2abbf2b4e10585e15176fd7b5ef03c28dda959ae26fc142549fdd1814db91d`) are byte-identical to Google's official MediaPipe float32 v1 builds ([lite0](https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/1/efficientdet_lite0.tflite) · [lite2](https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/float32/1/efficientdet_lite2.tflite)). Both models are Apache 2.0 licensed.
 
 Both models output detections over 80 COCO classes (90 entries in the label
 map; some are placeholder `???` slots to keep alignment with the original

@@ -32,7 +32,8 @@ void main() {
     const smooth = bool.fromEnvironment('SMOOTH', defaultValue: true);
     // Comma-separated category allowlist, e.g. CATEGORIES="sports ball,person".
     // Empty means no category filtering.
-    const categoriesCsv = String.fromEnvironment('CATEGORIES', defaultValue: '');
+    const categoriesCsv =
+        String.fromEnvironment('CATEGORIES', defaultValue: '');
     final allowlist = categoriesCsv
         .split(',')
         .map((s) => s.trim())
@@ -106,7 +107,8 @@ void main() {
     overall.stop();
     await detector.dispose();
     // ignore: avoid_print
-    print('[demos] ALL DONE in ${(overall.elapsedMilliseconds / 1000).toStringAsFixed(1)}s '
+    print(
+        '[demos] ALL DONE in ${(overall.elapsedMilliseconds / 1000).toStringAsFixed(1)}s '
         '-> $outputDir');
   }, timeout: const Timeout(Duration(minutes: 90)));
 }

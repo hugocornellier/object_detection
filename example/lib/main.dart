@@ -39,7 +39,8 @@ class ObjectDetectionApp extends StatelessWidget {
 
 /// The default model used across all screens (higher accuracy; nicer boxes for
 /// the demo). Live camera can switch to Lite0 for higher FPS.
-const ObjectDetectionModel kDefaultModel = ObjectDetectionModel.efficientDetLite2;
+const ObjectDetectionModel kDefaultModel =
+    ObjectDetectionModel.efficientDetLite2;
 
 String modelLabel(ObjectDetectionModel m) => switch (m) {
       ObjectDetectionModel.efficientDetLite0 => 'Lite0',
@@ -100,7 +101,8 @@ class HomeScreen extends StatelessWidget {
                       context,
                       icon: Icons.videocam,
                       title: 'Live Camera',
-                      description: 'Real-time object detection from camera feed',
+                      description:
+                          'Real-time object detection from camera feed',
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -115,7 +117,8 @@ class HomeScreen extends StatelessWidget {
                           'Detect objects in photos from gallery or samples',
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const StillImageScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const StillImageScreen()),
                       ),
                     ),
                     _buildModeCard(
@@ -127,7 +130,8 @@ class HomeScreen extends StatelessWidget {
                           'tracked detections',
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const VideoFileScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const VideoFileScreen()),
                       ),
                     ),
                   ],
@@ -369,10 +373,10 @@ class _StillImageScreenState extends State<StillImageScreen> {
                 CompactCheckbox(
                     label: label,
                     value: v,
-                    onChanged: (x) => update(() => set(x ?? false), rerun: rerun));
+                    onChanged: (x) =>
+                        update(() => set(x ?? false), rerun: rerun));
             Widget sl(String label, double v, double mn, double mx,
-                    void Function(double) set,
-                    {bool rerun = false}) =>
+                    void Function(double) set, {bool rerun = false}) =>
                 CompactSlider(
                     label: label,
                     value: v,
@@ -440,8 +444,8 @@ class _StillImageScreenState extends State<StillImageScreen> {
                           title: const Text('Sizes',
                               style: TextStyle(fontWeight: FontWeight.bold)),
                           children: [
-                            sl('Box thickness', _boundingBoxThickness, 0.5, 10.0,
-                                (v) => _boundingBoxThickness = v),
+                            sl('Box thickness', _boundingBoxThickness, 0.5,
+                                10.0, (v) => _boundingBoxThickness = v),
                             sl('Label size', _labelFontSize, 8.0, 28.0,
                                 (v) => _labelFontSize = v),
                             const SizedBox(height: 8),
@@ -452,9 +456,11 @@ class _StillImageScreenState extends State<StillImageScreen> {
                               style: TextStyle(fontWeight: FontWeight.bold)),
                           children: [
                             sl('Score threshold', _scoreThreshold, 0.0, 1.0,
-                                (v) => _scoreThreshold = v, rerun: true),
+                                (v) => _scoreThreshold = v,
+                                rerun: true),
                             sl('Max results', _maxResults.toDouble(), 1.0, 30.0,
-                                (v) => _maxResults = v.round(), rerun: true),
+                                (v) => _maxResults = v.round(),
+                                rerun: true),
                             const SizedBox(height: 8),
                           ],
                         ),
@@ -573,12 +579,13 @@ class _StillImageScreenState extends State<StillImageScreen> {
                                   child: CustomPaint(
                                     painter: DetectionsPainter(
                                       detections: _detections,
-                                      imageRectOnCanvas: Rect.fromLTWH(
-                                          0, 0, imageRect.width, imageRect.height),
+                                      imageRectOnCanvas: Rect.fromLTWH(0, 0,
+                                          imageRect.width, imageRect.height),
                                       originalImageSize: _originalSize!,
                                       showBoundingBoxes: _showBoundingBoxes,
                                       showLabels: _showLabels,
-                                      boundingBoxThickness: _boundingBoxThickness,
+                                      boundingBoxThickness:
+                                          _boundingBoxThickness,
                                       labelFontSize: _labelFontSize,
                                       boundingBoxColor: _perClassColors
                                           ? null
@@ -920,7 +927,10 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
     final padding = MediaQuery.of(context).padding;
     if (turns == 0) {
       return Positioned(
-          top: padding.top, left: padding.left, right: padding.right, child: bar);
+          top: padding.top,
+          left: padding.left,
+          right: padding.right,
+          child: bar);
     }
     return Positioned(
       top: padding.top,
@@ -1047,7 +1057,8 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
               runSpacing: 6,
               children: [
                 chip(ObjectDetectionModel.efficientDetLite0, 'Lite0 (fast)'),
-                chip(ObjectDetectionModel.efficientDetLite2, 'Lite2 (accurate)'),
+                chip(
+                    ObjectDetectionModel.efficientDetLite2, 'Lite2 (accurate)'),
               ],
             ),
             const Divider(color: Colors.white24, height: 24),
@@ -1145,7 +1156,9 @@ class _VideoFileScreenState extends State<VideoFileScreen> {
         _isInitialized = true;
       });
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = 'Failed to init detector: $e');
+      if (mounted) {
+        setState(() => _errorMessage = 'Failed to init detector: $e');
+      }
     }
   }
 
@@ -1392,7 +1405,8 @@ class _VideoFileScreenState extends State<VideoFileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Options', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Options',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             Wrap(
               spacing: 12,
@@ -1458,8 +1472,9 @@ class _VideoFileScreenState extends State<VideoFileScreen> {
   }
 
   Widget _buildProgress() {
-    final double pct =
-        _totalFrames > 0 ? (_processedFrames / _totalFrames).clamp(0.0, 1.0) : 0;
+    final double pct = _totalFrames > 0
+        ? (_processedFrames / _totalFrames).clamp(0.0, 1.0)
+        : 0;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),

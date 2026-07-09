@@ -49,13 +49,15 @@ void drawObjectsOnMat(
   if (dets.isEmpty) return;
   final int w = mat.cols;
   final int h = mat.rows;
-  final int thickness = resolutionThickness(w, h, thicknessScale: thicknessScale);
+  final int thickness =
+      resolutionThickness(w, h, thicknessScale: thicknessScale);
   final double fontScale = _resolutionFontScale(w, h);
   final int fontThickness = math.max(1, (thickness * 0.55).round());
   final white = cv.Scalar(255, 255, 255);
 
   for (final obj in dets) {
-    final color = _bgr(perClassColors ? colorForClass(obj.category.index) : boxColor);
+    final color =
+        _bgr(perClassColors ? colorForClass(obj.category.index) : boxColor);
     final bb = obj.boundingBox;
     final l = bb.topLeft.x.toInt().clamp(0, w - 1);
     final t = bb.topLeft.y.toInt().clamp(0, h - 1);
@@ -72,14 +74,16 @@ void drawObjectsOnMat(
     }
 
     if (showLabels) {
-      final label = '${obj.categoryName} ${(obj.score * 100).toStringAsFixed(0)}%';
-      final (sz, _) =
-          cv.getTextSize(label, cv.FONT_HERSHEY_SIMPLEX, fontScale, fontThickness);
+      final label =
+          '${obj.categoryName} ${(obj.score * 100).toStringAsFixed(0)}%';
+      final (sz, _) = cv.getTextSize(
+          label, cv.FONT_HERSHEY_SIMPLEX, fontScale, fontThickness);
       final pad = (fontScale * 6).round();
       final labelTop = (t - sz.height - pad * 2).clamp(0, h - 1);
       final labelW = (sz.width + pad * 2).clamp(1, w - l);
       final labelH = (sz.height + pad * 2).clamp(1, h - labelTop);
-      cv.rectangle(mat, cv.Rect(l, labelTop, labelW, labelH), color, thickness: -1);
+      cv.rectangle(mat, cv.Rect(l, labelTop, labelW, labelH), color,
+          thickness: -1);
       cv.putText(
         mat,
         label,

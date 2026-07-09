@@ -26,7 +26,8 @@ void main() {
     const inputDir = String.fromEnvironment('INPUT_DIR');
     const scorePct = int.fromEnvironment('SCORE', defaultValue: 60);
     const maxResults = int.fromEnvironment('MAX_RESULTS', defaultValue: 3);
-    const categoriesCsv = String.fromEnvironment('CATEGORIES', defaultValue: '');
+    const categoriesCsv =
+        String.fromEnvironment('CATEGORIES', defaultValue: '');
     final allowlist = categoriesCsv
         .split(',')
         .map((s) => s.trim())
@@ -106,7 +107,8 @@ void main() {
       }
       final detFrames = presence.where((x) => x).length;
       // ignore: avoid_print
-      print('[runs] $name  fps=${f.toStringAsFixed(1)} frames=${presence.length} '
+      print(
+          '[runs] $name  fps=${f.toStringAsFixed(1)} frames=${presence.length} '
           'detected=$detFrames (${(100 * detFrames / (presence.isEmpty ? 1 : presence.length)).toStringAsFixed(0)}%) '
           'LONGEST=${bestLen}f=${(bestLen / f).toStringAsFixed(2)}s '
           '@${(bestStart / f).toStringAsFixed(2)}s '
@@ -121,7 +123,8 @@ void main() {
           }
           final mean = sum / r[1];
           // ignore: avoid_print
-          print('    run ${(r[0] / f).toStringAsFixed(2)}s..${((r[0] + r[1]) / f).toStringAsFixed(2)}s '
+          print(
+              '    run ${(r[0] / f).toStringAsFixed(2)}s..${((r[0] + r[1]) / f).toStringAsFixed(2)}s '
               '(${dur.toStringAsFixed(2)}s, ${r[1]}f) meanScore=${(mean * 100).toStringAsFixed(0)}%');
         }
       }

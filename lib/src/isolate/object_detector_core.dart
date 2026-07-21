@@ -74,8 +74,8 @@ class _ObjectDetectorCore {
       outW: m.inputWidth,
       outH: m.inputHeight,
     );
-    // Pass the score threshold down to the decoder so we can short-circuit
-    // sigmoid filtering on the per-anchor inner loop.
+    // Pass the score threshold to the decoder so sub-threshold anchors are
+    // dropped during decoding, before NMS.
     final List<Detection> rawDets = await m.callWithTensor(
       tensor,
       scoreThreshold: options.scoreThreshold,

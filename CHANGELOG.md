@@ -1,3 +1,23 @@
+## 0.3.0
+
+* Fix confidence decoding for both bundled EfficientDet-Lite variants. Their
+  class tensors are already produced by a TFLite `LOGISTIC` op; scores and
+  thresholds are now used directly instead of applying sigmoid a second time.
+  This removes widespread false positives and restores calibrated confidence
+  values.
+* Bump `ObjectDetector.modelVersion` because postprocessing output changes for
+  the same input bytes.
+* Add real-model regressions for Lite0 and Lite2 blank/uniform inputs.
+* **Breaking:** trim the `flutter_litert` convenience re-export surface. Removed
+  16 symbols that this package never used and never documented (leftovers from
+  the sister `face_detection_tflite` package): `createNHWCTensor4D`,
+  `fillNHWC4D`, `allocTensorShape`, `flattenDynamicTensor`, `sigmoid`,
+  `sigmoidClipped`, `bgrBytesToRgbFloat32`, `packYuv420`, `YuvPlane`,
+  `YuvLayout`, `PackedYuv`, `CameraPlane`, `coverFitScaleOffset`,
+  `drawLandmarkMarker`, `drawSkeletonConnections`, `drawBoundingBoxOutline`. If
+  you relied on any of these, import them directly from
+  `package:flutter_litert/flutter_litert.dart`.
+
 ## 0.2.3
 
 * Update flutter_litert -> 3.5.0

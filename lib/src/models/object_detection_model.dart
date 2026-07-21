@@ -4,7 +4,8 @@ part of '../../object_detection.dart';
 ///
 /// Both EfficientDet TFLite outputs are 3D `[1, numAnchors, X]`:
 ///   - boxes: shape `[1, A, 4]`, `[ty, tx, th, tw]` deltas relative to anchor.
-///   - classes: shape `[1, A, K]`, raw per-class logits (sigmoid in postproc).
+///   - classes: shape `[1, A, K]`, per-class probabilities (the model output
+///     tensor is produced by a LOGISTIC op).
 class _DetectorOutputBinding {
   final int boxesIdx;
   final int classesIdx;
@@ -26,9 +27,10 @@ class _DetectorOutputBinding {
 /// Object Detector solution. See the model card and download links at:
 /// https://ai.google.dev/edge/mediapipe/solutions/vision/object_detector
 ///
-/// These TFLite files emit raw RetinaNet-style anchor outputs; this class
-/// generates the anchors at load time, then applies sigmoid + per-anchor
-/// argmax + box decoding + weighted NMS in Dart to produce final detections.
+/// These TFLite files emit RetinaNet-style anchor outputs with activated class
+/// probabilities; this class generates the anchors at load time, then applies
+/// per-anchor argmax + box decoding + weighted NMS in Dart to produce final
+/// detections.
 ///
 /// Most users should use the high-level [ObjectDetector] class instead of
 /// working with this low-level model API directly.
@@ -227,8 +229,8 @@ class ObjectDetection with _TfliteModelDisposable {
     return _detectionLetterboxRemoval(kept, pack.padding);
   }
 
-  /// Iterates anchors, finds top class per anchor (sigmoid of logits), filters
-  /// by [scoreThreshold], and decodes box deltas to normalized `[xmin, ymin,
+  /// Iterates anchors, finds the top class probability per anchor, filters by
+  /// [scoreThreshold], and decodes box deltas to normalized `[xmin, ymin,
   /// xmax, ymax]` coordinates in model-input space.
   List<Detection> _decodeAnchorsAndScore({
     required Float32List boxBuf,
@@ -239,28 +241,19 @@ class ObjectDetection with _TfliteModelDisposable {
     final int k = _binding.numClasses;
     final List<Detection> out = <Detection>[];
 
-    // Pre-image-tensor lookup of sigmoid threshold to short-circuit the inner
-    // loop: any logit below this can't pass the score threshold.
-    // sigmoid(x) >= s ⇒ x >= -ln((1-s)/s) = ln(s/(1-s))
-    final double minLogit = scoreThreshold > 0 && scoreThreshold < 1
-        ? math.log(scoreThreshold / (1.0 - scoreThreshold))
-        : -1e9;
-
     for (int i = 0; i < n; i++) {
       final int classBase = i * k;
       // Find top class.
-      double bestLogit = -double.infinity;
+      double bestScore = -double.infinity;
       int bestCls = -1;
       for (int c = 0; c < k; c++) {
         final double v = clsBuf[classBase + c];
-        if (v > bestLogit) {
-          bestLogit = v;
+        if (v > bestScore) {
+          bestScore = v;
           bestCls = c;
         }
       }
-      if (bestLogit < minLogit) continue;
-      final double score = sigmoid(bestLogit);
-      if (score < scoreThreshold) continue;
+      if (bestScore < scoreThreshold) continue;
 
       final List<double> a = _anchors[i];
       final double cxA = a[0], cyA = a[1], wA = a[2], hA = a[3];
@@ -291,7 +284,7 @@ class ObjectDetection with _TfliteModelDisposable {
       out.add(
         Detection(
           boundingBox: RectF(xmin, ymin, xmax, ymax),
-          score: score,
+          score: bestScore,
           classIndex: bestCls,
         ),
       );

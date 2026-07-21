@@ -1,6 +1,6 @@
 name: object_detection
 description: "On-device object detection using MediaPipe EfficientDet-Lite TFLite models. 80 COCO classes, fully offline."
-version: 0.2.3
+version: 0.3.0
 
 repository: https://github.com/hugocornellier/object_detection
 homepage: https://github.com/hugocornellier/object_detection

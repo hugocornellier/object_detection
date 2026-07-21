@@ -45,7 +45,7 @@ class ObjectDetector {
   /// Bump this when detection output could change for the same input bytes.
   /// For example, on model file swaps, threshold changes, preprocessing changes,
   /// or postprocessing / coordinate-space changes.
-  static const String modelVersion = '1.0.0';
+  static const String modelVersion = '1.0.1';
 
   /// Creates a new object detector instance.
   ///

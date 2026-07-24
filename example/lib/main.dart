@@ -384,11 +384,10 @@ class _StillImageScreenState extends State<StillImageScreen> {
                     max: mx,
                     onChanged: (x) => update(() => set(x), rerun: rerun));
 
-            return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              ),
+            return Material(
+              color: Colors.white,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
               child: Column(
                 children: [
                   Container(

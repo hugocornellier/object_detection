@@ -1,6 +1,11 @@
 part of '../../object_detection.dart';
 
 /// Holds metadata for an output tensor (shape plus its writable buffer).
+@Deprecated(
+  'Unused by this package. Use collectOutputShapes from flutter_litert, which '
+  'returns shapes without materializing tensor buffers. Will be removed in the '
+  'next major release.',
+)
 class OutputTensorInfo {
   /// Creates an [OutputTensorInfo] with the given [shape] and [buffer].
   ///
@@ -16,6 +21,10 @@ class OutputTensorInfo {
 }
 
 /// Collects output tensor shapes (and their backing buffers) for an interpreter.
+@Deprecated(
+  'Unused by this package. Use collectOutputShapes from flutter_litert. Will '
+  'be removed in the next major release.',
+)
 Map<int, OutputTensorInfo> collectOutputTensorInfo(Interpreter itp) {
   final Map<int, OutputTensorInfo> outputs = <int, OutputTensorInfo>{};
   for (int i = 0;; i++) {
@@ -31,7 +40,12 @@ Map<int, OutputTensorInfo> collectOutputTensorInfo(Interpreter itp) {
 
 /// Test-only access to [collectOutputTensorInfo] for verifying output tensor collection.
 @visibleForTesting
+@Deprecated(
+  'Accompanies collectOutputTensorInfo. Will be removed in the next major '
+  'release.',
+)
 Map<int, OutputTensorInfo> testCollectOutputTensorInfo(Interpreter itp) =>
+    // ignore: deprecated_member_use_from_same_package
     collectOutputTensorInfo(itp);
 
 /// Shared dispose logic for TFLite model classes.

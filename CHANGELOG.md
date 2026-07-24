@@ -9,14 +9,22 @@
   the same input bytes.
 * Add real-model regressions for Lite0 and Lite2 blank/uniform inputs.
 * **Breaking:** trim the `flutter_litert` convenience re-export surface. Removed
-  16 symbols that this package never used and never documented (leftovers from
-  the sister `face_detection_tflite` package): `createNHWCTensor4D`,
+  16 symbols that this package never used and never documented: `createNHWCTensor4D`,
   `fillNHWC4D`, `allocTensorShape`, `flattenDynamicTensor`, `sigmoid`,
   `sigmoidClipped`, `bgrBytesToRgbFloat32`, `packYuv420`, `YuvPlane`,
   `YuvLayout`, `PackedYuv`, `CameraPlane`, `coverFitScaleOffset`,
   `drawLandmarkMarker`, `drawSkeletonConnections`, `drawBoundingBoxOutline`. If
   you relied on any of these, import them directly from
   `package:flutter_litert/flutter_litert.dart`.
+* Deprecate `OutputTensorInfo`, `collectOutputTensorInfo` and
+  `testCollectOutputTensorInfo`. They are byte-identical to copies in
+  `face_detection_tflite` and are not called anywhere in this package outside
+  their own test hook; `flutter_litert` 3.6.0 provides `collectOutputShapes`,
+  which returns shapes without materializing tensor buffers. Deprecated rather
+  than removed, since they are public via `part`.
+* Update flutter_litert -> 3.6.0.
+* Expand the README live camera section with the full production pipeline
+  (frame throttling, orientation handling, cover-fit overlay mapping).
 
 ## 0.2.3
 

@@ -49,18 +49,31 @@ const ObjectDetectionModel kDefaultModel =
 /// `false` uses the classic `Interpreter` plus a platform delegate (XNNPACK on
 /// desktop/Android, Metal on iOS).
 ///
-/// The demo defaults to `CompiledModel` and every screen carries a `CM`/`XNN`
-/// badge that switches engines live, so the two are easy to compare against
-/// the reported inference time. Note this is the *demo's* default: the package
-/// itself still defaults to the `Interpreter` path, so adding
-/// `object_detection` to an app never silently changes its inference engine.
+/// The demo defaults to `CompiledModel` and every screen carries a
+/// `CM` / `Interpreter` badge that switches engines live, so the two are easy
+/// to compare against the reported inference time. Note this is the *demo's*
+/// default: the package itself still defaults to the `Interpreter` path, so
+/// adding `object_detection` to an app never silently changes its inference
+/// engine.
 const bool kDefaultUseCompiledModel = true;
 
-String engineLabel(bool useCompiledModel) =>
-    useCompiledModel ? 'LiteRT Next (GPU)' : 'Interpreter (CPU)';
+/// Badge text for the active engine.
+///
+/// These name the two `flutter_litert` engine classes, `CompiledModel` and
+/// `Interpreter`, rather than a delegate. The interpreter path picks its
+/// delegate per platform (XNNPACK on desktop and Android, Metal on iOS), so
+/// labelling this axis after any one delegate would be wrong on the others.
+String engineBadgeLabel(bool useCompiledModel) =>
+    useCompiledModel ? 'CM' : 'Interpreter';
 
-/// Compact engine badge, matching the `CM` / `XNN` control in the
-/// face_detection_tflite, pose_detection and hand_detection demos.
+/// Long-form engine description, for tooltips and menu subtitles.
+String engineLabel(bool useCompiledModel) => useCompiledModel
+    ? 'CompiledModel (LiteRT Next, GPU with CPU fallback)'
+    : 'Interpreter (platform delegate)';
+
+/// Compact engine badge. Serves the same role as the `CM` / `XNN` control in
+/// the face_detection_tflite, pose_detection and hand_detection demos, but
+/// names the engine rather than one of the interpreter path's delegates.
 class EngineToggleButton extends StatelessWidget {
   const EngineToggleButton({
     super.key,
@@ -80,11 +93,15 @@ class EngineToggleButton extends StatelessWidget {
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
-          minimumSize: const Size(48, 36),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          // Fixed width so swapping between the two labels does not shift the
+          // surrounding controls.
+          minimumSize: const Size(92, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
         ),
         child: Text(
-          useCompiledModel ? 'CM' : 'XNN',
+          engineBadgeLabel(useCompiledModel),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: color,
             fontWeight: FontWeight.bold,
@@ -96,11 +113,35 @@ class EngineToggleButton extends StatelessWidget {
   }
 }
 
+/// Runs one throwaway inference so the first real detection is not paying
+/// one-time setup costs.
+///
+/// This matters most on the `CompiledModel` GPU path, where the first call
+/// compiles Metal shaders. Without it, switching engines in the demo shows a
+/// cold CompiledModel number against a warm Interpreter number, which reads as
+/// CompiledModel being several times *slower* when it is in fact faster. The
+/// benchmark suite in `integration_test/` warms up for the same reason.
+Future<void> _warmUp(ObjectDetector detector) async {
+  try {
+    const int side = 64;
+    await detector.detectFromMatBytes(
+      Uint8List(side * side * 3),
+      width: side,
+      height: side,
+    );
+  } catch (e) {
+    // A failed warm-up costs accuracy of the first timing readout, nothing
+    // more; the detector itself is already usable.
+    debugPrint('Detector warm-up failed (harmless): $e');
+  }
+}
+
 /// Builds an [ObjectDetector], falling back to the `Interpreter` engine if the
 /// `CompiledModel` engine cannot be created on this device.
 ///
 /// Returns the detector plus the engine actually in use, so callers can keep
-/// their badge honest after a fallback.
+/// their badge honest after a fallback. The returned detector is warmed up, so
+/// the timing shown for the first detection is comparable across engines.
 Future<({ObjectDetector detector, bool useCompiledModel})> createDetector({
   required ObjectDetectionModel model,
   required bool useCompiledModel,
@@ -110,6 +151,7 @@ Future<({ObjectDetector detector, bool useCompiledModel})> createDetector({
       model: model,
       useCompiledModel: useCompiledModel,
     );
+    await _warmUp(detector);
     return (detector: detector, useCompiledModel: useCompiledModel);
   } catch (e) {
     if (!useCompiledModel) rethrow;
@@ -120,6 +162,7 @@ Future<({ObjectDetector detector, bool useCompiledModel})> createDetector({
       model: model,
       useCompiledModel: false,
     );
+    await _warmUp(detector);
     return (detector: detector, useCompiledModel: false);
   }
 }

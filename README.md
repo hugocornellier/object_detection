@@ -313,7 +313,7 @@ silently changes its inference engine. Opt in per detector once you have
 measured it on your target hardware.
 
 The **example app** does default to `CompiledModel`, and every screen carries a
-`CM` / `XNN` badge that switches engines live so you can compare them against
+`CM` / `Interpreter` badge that switches engines live so you can compare them against
 the reported inference time. If `CompiledModel` cannot be created on the
 device, the example falls back to the `Interpreter` engine and the badge
 reports what is actually running.

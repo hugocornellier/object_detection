@@ -12,8 +12,7 @@ void main() {
     );
   });
 
-  testWidgets('badge reads CM on the compiled engine and XNN otherwise',
-      (tester) async {
+  testWidgets('badge names the engine, not a delegate', (tester) async {
     Future<void> pumpBadge(bool useCompiledModel) => tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
@@ -27,11 +26,15 @@ void main() {
 
     await pumpBadge(true);
     expect(find.text('CM'), findsOneWidget);
-    expect(find.text('XNN'), findsNothing);
+    expect(find.text('Interpreter'), findsNothing);
 
     await pumpBadge(false);
-    expect(find.text('XNN'), findsOneWidget);
+    expect(find.text('Interpreter'), findsOneWidget);
     expect(find.text('CM'), findsNothing);
+
+    // "XNN" names a delegate the interpreter path only uses on some
+    // platforms; on iOS it is Metal. The badge must not claim otherwise.
+    expect(find.text('XNN'), findsNothing);
   });
 
   testWidgets('tapping the badge flips the engine', (tester) async {
@@ -54,7 +57,7 @@ void main() {
     expect(find.text('CM'), findsOneWidget);
     await tester.tap(find.byType(EngineToggleButton));
     await tester.pump();
-    expect(find.text('XNN'), findsOneWidget);
+    expect(find.text('Interpreter'), findsOneWidget);
     expect(useCompiledModel, isFalse);
 
     await tester.tap(find.byType(EngineToggleButton));

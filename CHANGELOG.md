@@ -36,12 +36,21 @@
   invoke-vs-decode-vs-NMS attribution, a delegate/engine sweep, and an
   engine A/B that asserts the two engines agree. Each emits `BENCH_JSON`.
 * The example app now defaults to the `CompiledModel` engine and carries a
-  `CM` / `XNN` badge on all three screens that switches engines live, matching
-  the face, pose and hand demos. Detector creation falls back to the
+  `CM` / `Interpreter` badge on all three screens that switches engines live,
+  matching the face, pose and hand demos. Detector creation falls back to the
   `Interpreter` engine if `CompiledModel` cannot be created on the device, and
   the badge reports the engine actually in use. The package default is
   unchanged, so adding `object_detection` to an app never silently switches
   its inference engine.
+* Warm the detector with one throwaway inference on creation. Without it the
+  first timing shown after an engine switch is a cold `CompiledModel` number
+  (Metal shader compilation) measured against a warm `Interpreter` one, which
+  made the faster engine read as several times slower. Observed on Lite2:
+  140 ms cold vs 39 ms warmed, against 41 ms for the interpreter.
+* The badge names the engine (`CM` / `Interpreter`) rather than a delegate.
+  The other demos label this axis `CM` / `XNN`, but XNNPACK is only the
+  interpreter path's delegate on desktop and Android; on iOS it is Metal, so
+  an `XNN` label is wrong there.
 
 ## 0.3.0
 

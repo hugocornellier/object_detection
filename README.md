@@ -307,9 +307,16 @@ The two engines agree on what they detect. GPU fp16 arithmetic shifts scores by
 roughly 1e-3, which is occasionally enough to swap the rank of two detections
 whose scores are tied to three decimals.
 
-The default is deliberately left on the `Interpreter` path, matching the other
-LiteRT demo packages. Opt in per detector once you have measured it on your
-target hardware.
+The package default is deliberately left on the `Interpreter` path, matching
+the other LiteRT demo packages, so adding `object_detection` to an app never
+silently changes its inference engine. Opt in per detector once you have
+measured it on your target hardware.
+
+The **example app** does default to `CompiledModel`, and every screen carries a
+`CM` / `XNN` badge that switches engines live so you can compare them against
+the reported inference time. If `CompiledModel` cannot be created on the
+device, the example falls back to the `Interpreter` engine and the badge
+reports what is actually running.
 
 ### Hardware Acceleration
 

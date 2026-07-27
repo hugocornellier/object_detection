@@ -44,15 +44,85 @@ const ObjectDetectionModel kDefaultModel =
 
 /// Inference engine the demo starts on.
 ///
+/// `true` uses the LiteRT Next `CompiledModel` engine, which runs on the GPU
+/// with automatic CPU fallback and is markedly faster for these models.
 /// `false` uses the classic `Interpreter` plus a platform delegate (XNNPACK on
-/// desktop/Android, Metal on iOS). `true` uses the LiteRT Next `CompiledModel`
-/// engine, which runs on the GPU with automatic CPU fallback and is markedly
-/// faster for these models. Every screen exposes a live toggle, so the two are
-/// easy to compare against the reported inference time.
-const bool kDefaultUseCompiledModel = false;
+/// desktop/Android, Metal on iOS).
+///
+/// The demo defaults to `CompiledModel` and every screen carries a `CM`/`XNN`
+/// badge that switches engines live, so the two are easy to compare against
+/// the reported inference time. Note this is the *demo's* default: the package
+/// itself still defaults to the `Interpreter` path, so adding
+/// `object_detection` to an app never silently changes its inference engine.
+const bool kDefaultUseCompiledModel = true;
 
 String engineLabel(bool useCompiledModel) =>
     useCompiledModel ? 'LiteRT Next (GPU)' : 'Interpreter (CPU)';
+
+/// Compact engine badge, matching the `CM` / `XNN` control in the
+/// face_detection_tflite, pose_detection and hand_detection demos.
+class EngineToggleButton extends StatelessWidget {
+  const EngineToggleButton({
+    super.key,
+    required this.useCompiledModel,
+    required this.onPressed,
+    this.color = Colors.amberAccent,
+  });
+
+  final bool useCompiledModel;
+  final VoidCallback? onPressed;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Engine: ${engineLabel(useCompiledModel)}. Tap to switch.',
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        child: Text(
+          useCompiledModel ? 'CM' : 'XNN',
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Builds an [ObjectDetector], falling back to the `Interpreter` engine if the
+/// `CompiledModel` engine cannot be created on this device.
+///
+/// Returns the detector plus the engine actually in use, so callers can keep
+/// their badge honest after a fallback.
+Future<({ObjectDetector detector, bool useCompiledModel})> createDetector({
+  required ObjectDetectionModel model,
+  required bool useCompiledModel,
+}) async {
+  try {
+    final detector = await ObjectDetector.create(
+      model: model,
+      useCompiledModel: useCompiledModel,
+    );
+    return (detector: detector, useCompiledModel: useCompiledModel);
+  } catch (e) {
+    if (!useCompiledModel) rethrow;
+    debugPrint(
+      'CompiledModel init failed; falling back to the Interpreter engine: $e',
+    );
+    final detector = await ObjectDetector.create(
+      model: model,
+      useCompiledModel: false,
+    );
+    return (detector: detector, useCompiledModel: false);
+  }
+}
 
 String modelLabel(ObjectDetectionModel m) => switch (m) {
       ObjectDetectionModel.efficientDetLite0 => 'Lite0',
@@ -282,10 +352,12 @@ class _StillImageScreenState extends State<StillImageScreen> {
   Future<void> _initDetector({bool loadFirstSample = false}) async {
     try {
       await _detector?.dispose();
-      _detector = await ObjectDetector.create(
+      final created = await createDetector(
         model: _model,
         useCompiledModel: _useCompiledModel,
       );
+      _detector = created.detector;
+      _useCompiledModel = created.useCompiledModel;
     } catch (_) {}
     if (!mounted) return;
     setState(() {});
@@ -360,6 +432,15 @@ class _StillImageScreenState extends State<StillImageScreen> {
   Future<void> _switchModel(ObjectDetectionModel m) async {
     setState(() {
       _model = m;
+      _isLoading = true;
+    });
+    await _initDetector();
+    if (_imageBytes != null) await _runDetection(_imageBytes!);
+  }
+
+  Future<void> _toggleEngine() async {
+    setState(() {
+      _useCompiledModel = !_useCompiledModel;
       _isLoading = true;
     });
     await _initDetector();
@@ -480,37 +561,6 @@ class _StillImageScreenState extends State<StillImageScreen> {
                           ],
                         ),
                         ExpansionTile(
-                          title: const Text('Engine',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text(engineLabel(_useCompiledModel)),
-                          children: [
-                            CompactCheckbox(
-                              label: 'LiteRT Next CompiledModel (GPU, '
-                                  'CPU fallback)',
-                              value: _useCompiledModel,
-                              onChanged: (v) async {
-                                final next = v ?? false;
-                                if (next == _useCompiledModel) return;
-                                setSheetState(() => _useCompiledModel = next);
-                                setState(() => _isLoading = true);
-                                await _initDetector();
-                                if (!mounted) return;
-                                setState(() => _isLoading = false);
-                                final bytes = _imageBytes;
-                                if (bytes != null) await _runDetection(bytes);
-                              },
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8),
-                              child: Text(
-                                'Watch the inference time above the image '
-                                'change as you toggle engines.',
-                                style: TextStyle(fontSize: 11),
-                              ),
-                            ),
-                          ],
-                        ),
-                        ExpansionTile(
                           title: const Text('Class filter',
                               style: TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text(
@@ -565,6 +615,11 @@ class _StillImageScreenState extends State<StillImageScreen> {
             onPressed: _isLoading ? null : _pickAndRun,
             icon: const Icon(Icons.add_photo_alternate),
             tooltip: 'Pick Image',
+          ),
+          EngineToggleButton(
+            useCompiledModel: _useCompiledModel,
+            color: Colors.deepOrange,
+            onPressed: _isLoading ? null : _toggleEngine,
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -760,10 +815,18 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
     final old = _detector;
     _detector = null;
     await old?.dispose();
-    _detector = await ObjectDetector.create(
+    final created = await createDetector(
       model: _model,
       useCompiledModel: _useCompiledModel,
     );
+    _detector = created.detector;
+    _useCompiledModel = created.useCompiledModel;
+  }
+
+  Future<void> _toggleEngine() async {
+    setState(() => _useCompiledModel = !_useCompiledModel);
+    await _reinitDetector();
+    if (mounted) setState(() {});
   }
 
   Future<void> _initCamera() async {
@@ -1033,6 +1096,10 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
                       : Icons.flip_camera_android),
                   onPressed: _isSwitchingCamera ? null : _switchCamera,
                 ),
+              EngineToggleButton(
+                useCompiledModel: _useCompiledModel,
+                onPressed: _toggleEngine,
+              ),
               PopupMenuButton<void>(
                 tooltip: 'Settings',
                 icon: const Icon(Icons.settings, color: Colors.white),
@@ -1109,46 +1176,6 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
                 chip(ObjectDetectionModel.efficientDetLite0, 'Lite0 (fast)'),
                 chip(
                     ObjectDetectionModel.efficientDetLite2, 'Lite2 (accurate)'),
-              ],
-            ),
-            const Divider(color: Colors.white24, height: 24),
-            const Text('ENGINE', style: sectionLabelStyle),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final compiled in [false, true])
-                  GestureDetector(
-                    onTap: () async {
-                      if (compiled == _useCompiledModel) return;
-                      setState(() => _useCompiledModel = compiled);
-                      await _reinitDetector();
-                      if (mounted) setMenuState(() {});
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _useCompiledModel == compiled
-                            ? Colors.blue
-                            : Colors.white12,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        engineLabel(compiled),
-                        style: TextStyle(
-                          color: _useCompiledModel == compiled
-                              ? Colors.white
-                              : Colors.white70,
-                          fontSize: 12,
-                          fontWeight: _useCompiledModel == compiled
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
             const Divider(color: Colors.white24, height: 24),
@@ -1237,16 +1264,17 @@ class _VideoFileScreenState extends State<VideoFileScreen> {
 
   Future<void> _initDetector() async {
     try {
-      final detector = await ObjectDetector.create(
+      final created = await createDetector(
         model: _model,
         useCompiledModel: _useCompiledModel,
       );
       if (!mounted) {
-        await detector.dispose();
+        await created.detector.dispose();
         return;
       }
       setState(() {
-        _detector = detector;
+        _detector = created.detector;
+        _useCompiledModel = created.useCompiledModel;
         _isInitialized = true;
       });
     } catch (e) {
@@ -1407,31 +1435,20 @@ class _VideoFileScreenState extends State<VideoFileScreen> {
       appBar: AppBar(
         title: const Text('Video File Detection'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: DropdownButton<bool>(
-              value: _useCompiledModel,
-              underline: const SizedBox(),
-              onChanged: _isProcessing
-                  ? null
-                  : (v) async {
-                      if (v == null || v == _useCompiledModel) return;
-                      setState(() {
-                        _useCompiledModel = v;
-                        _isInitialized = false;
-                      });
-                      await _detector?.dispose();
-                      _detector = null;
-                      await _initDetector();
-                    },
-              items: [
-                for (final compiled in [false, true])
-                  DropdownMenuItem(
-                    value: compiled,
-                    child: Text(engineLabel(compiled)),
-                  ),
-              ],
-            ),
+          EngineToggleButton(
+            useCompiledModel: _useCompiledModel,
+            color: Colors.deepOrange,
+            onPressed: _isProcessing
+                ? null
+                : () async {
+                    setState(() {
+                      _useCompiledModel = !_useCompiledModel;
+                      _isInitialized = false;
+                    });
+                    await _detector?.dispose();
+                    _detector = null;
+                    await _initDetector();
+                  },
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),

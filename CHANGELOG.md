@@ -35,8 +35,13 @@
 * Add a benchmark suite to the example: end-to-end and per-stage timings,
   invoke-vs-decode-vs-NMS attribution, a delegate/engine sweep, and an
   engine A/B that asserts the two engines agree. Each emits `BENCH_JSON`.
-* Add the engine toggle to all three example screens so the difference is
-  visible against the reported inference time.
+* The example app now defaults to the `CompiledModel` engine and carries a
+  `CM` / `XNN` badge on all three screens that switches engines live, matching
+  the face, pose and hand demos. Detector creation falls back to the
+  `Interpreter` engine if `CompiledModel` cannot be created on the device, and
+  the badge reports the engine actually in use. The package default is
+  unchanged, so adding `object_detection` to an app never silently switches
+  its inference engine.
 
 ## 0.3.0
 

@@ -36,23 +36,77 @@ class _DetectorOutputBinding {
 /// working with this low-level model API directly.
 class ObjectDetection with _TfliteModelDisposable {
   @override
-  final Interpreter _itp;
+  final Interpreter? _itp;
+
+  /// LiteRT Next engine, used instead of [_itp] when the model was created
+  /// with [createCompiledFromBuffer]. Exactly one of the two is non-null.
+  @override
+  final CompiledModel? _compiled;
+
   final int _inW, _inH;
   late final _DetectorOutputBinding _binding;
-  late final List<List<double>> _anchors;
+
+  /// Anchors packed as `[cx, cy, w, h]` per anchor. Flat so the decode loop
+  /// walks one contiguous buffer instead of dereferencing one `List<double>`
+  /// per anchor (19 206 of them for Lite0, 37 629 for Lite2).
+  late final Float32List _anchors;
   late final TensorFloat32Views _floatViews;
 
-  ObjectDetection._(
-    this._itp,
+  /// Scratch buffers reused across [callWithTensor] calls so a steady-state
+  /// detection loop allocates nothing per frame. Grown on demand; the decode
+  /// step writes survivors densely into the leading slots.
+  Float32List _decodedBoxes = Float32List(0);
+  Float32List _decodedScores = Float32List(0);
+  Int32List _decodedClasses = Int32List(0);
+
+  ObjectDetection._interpreter(
+    Interpreter itp,
     this._inW,
     this._inH,
-  );
+  )   : _itp = itp,
+        _compiled = null;
+
+  ObjectDetection._compiled(
+    CompiledModel compiled,
+    this._inW,
+    this._inH,
+  )   : _itp = null,
+        _compiled = compiled;
+
+  Interpreter _requireInterpreter() {
+    final itp = _itp;
+    if (itp == null) {
+      throw StateError(
+        'This ObjectDetection is backed by the CompiledModel engine and has '
+        'no Interpreter.',
+      );
+    }
+    return itp;
+  }
+
+  /// Whether inference runs on the LiteRT Next [CompiledModel] engine rather
+  /// than the classic [Interpreter] + delegate path.
+  bool get usesCompiledModel => _compiled != null;
+
+  /// The accelerators the [CompiledModel] engine actually compiled to, or null
+  /// on the interpreter path.
+  ///
+  /// Read this after initialization to find out whether a requested GPU
+  /// compilation succeeded or silently fell back to CPU.
+  Set<Accelerator>? get activeAccelerators => _compiled?.accelerators;
 
   /// The model input width in pixels.
   int get inputWidth => _inW;
 
   /// The model input height in pixels.
   int get inputHeight => _inH;
+
+  /// A reusable input tensor buffer sized for this model.
+  ///
+  /// Pass it as `convertImageToTensor(..., buffer: model.newInputBuffer())` and
+  /// keep it alive across frames to avoid reallocating `inputWidth *
+  /// inputHeight * 3` floats (1.2 MB for Lite0, 2.4 MB for Lite2) per call.
+  Float32List newInputBuffer() => Float32List(_inW * _inH * 3);
 
   /// Total number of anchor boxes.
   int get numAnchors => _binding.numAnchors;
@@ -94,6 +148,112 @@ class ObjectDetection with _TfliteModelDisposable {
         performanceConfig: performanceConfig,
       );
 
+  /// Creates an object detection model backed by the LiteRT Next
+  /// [CompiledModel] engine instead of an [Interpreter] plus delegate.
+  ///
+  /// [accelerators] defaults to "try GPU, fall back to CPU". Any other set is
+  /// treated as a hard requirement and will throw rather than degrade.
+  /// [precision] selects the GPU compute precision and is ignored on CPU.
+  ///
+  /// Read [activeAccelerators] afterwards to see what the model actually
+  /// compiled to.
+  static Future<ObjectDetection> createCompiledFromBuffer(
+    Uint8List modelBytes,
+    ObjectDetectionModel model, {
+    Set<Accelerator> accelerators = const {Accelerator.gpu, Accelerator.cpu},
+    Precision precision = Precision.fp16,
+    bool forceCpu = false,
+    TensorBufferMode tensorBufferMode = TensorBufferMode.hostMemory,
+  }) async {
+    // Host-memory buffers let the decoder read the detection heads as views of
+    // model-owned memory. That matters far more here than for a landmark model:
+    // EfficientDet emits ~1.8M floats per frame (Lite0) or ~3.4M (Lite2), so
+    // the managed path's copy-out is 7-14 MB of fresh Dart allocation per
+    // frame. Measured on macOS/Metal, zero-copy is ~1.4x the managed path.
+    //
+    // The mode is not universally supported, so a failure falls back to
+    // managed buffers rather than failing initialization.
+    CompiledModel? compiled;
+    if (tensorBufferMode == TensorBufferMode.hostMemory) {
+      try {
+        compiled = compiledModelFromBufferAuto(
+          modelBytes,
+          accelerators: accelerators,
+          precision: precision,
+          forceCpu: forceCpu,
+          tensorBufferMode: TensorBufferMode.hostMemory,
+          onGpuFallback: _onGpuFallback,
+        );
+      } catch (e) {
+        debugPrint(
+          'object_detection: host-memory tensor buffers unavailable, using '
+          'managed buffers. Error: $e',
+        );
+      }
+    }
+    compiled ??= compiledModelFromBufferAuto(
+      modelBytes,
+      accelerators: accelerators,
+      precision: precision,
+      forceCpu: forceCpu,
+      onGpuFallback: _onGpuFallback,
+    );
+
+    ObjectDetection? obj;
+    try {
+      // CompiledModel reports tensor sizes in bytes only (there is no
+      // Interpreter to query shapes from), so the geometry is re-derived from
+      // the byte sizes: the input is a square [1, S, S, 3] tensor, and the two
+      // outputs are distinguished by how many floats each carries per anchor.
+      final int side = compiledSquareInputSide(
+        compiled,
+        label: 'object detection',
+      );
+      obj = ObjectDetection._compiled(compiled, side, side);
+      obj._anchors = generateEfficientDetAnchorsFlat(imageSize: side);
+      final int anchorCount = obj._anchors.length ~/ 4;
+
+      final List<int> counts = compiledOutputFloatCounts(
+        compiled,
+        label: 'object detection',
+      );
+      final int boxesIdx =
+          indexWhereFloatCount(counts, (f) => f == anchorCount * 4);
+      final int classesIdx = indexWhereFloatCount(
+        counts,
+        (f) => f % anchorCount == 0 && f ~/ anchorCount > 4,
+      );
+      if (boxesIdx < 0 || classesIdx < 0) {
+        throw UnsupportedError(
+          'Could not identify compiled object-detector outputs for '
+          '$anchorCount anchors. Output float counts: $counts.',
+        );
+      }
+
+      obj._binding = _DetectorOutputBinding(
+        boxesIdx: boxesIdx,
+        classesIdx: classesIdx,
+        numAnchors: anchorCount,
+        numClasses: counts[classesIdx] ~/ anchorCount,
+      );
+      return obj;
+    } catch (_) {
+      if (obj != null) {
+        obj.dispose();
+      } else {
+        compiled.close();
+      }
+      rethrow;
+    }
+  }
+
+  static void _onGpuFallback(Object error) {
+    debugPrint(
+      'object_detection: GPU CompiledModel compilation failed, falling back '
+      'to CPU. Error: $error',
+    );
+  }
+
   static Future<ObjectDetection> _createWithLoader({
     required ObjectDetectionModel model,
     required FutureOr<Interpreter> Function(InterpreterOptions) load,
@@ -116,17 +276,17 @@ class ObjectDetection with _TfliteModelDisposable {
     final int inW = ishape[2];
     itp.allocateTensors();
 
-    final ObjectDetection obj = ObjectDetection._(itp, inW, inH);
+    final ObjectDetection obj = ObjectDetection._interpreter(itp, inW, inH);
     obj._delegate = delegate;
     obj._binding = obj._discoverOutputBinding();
 
     // Generate anchors once at load time.
-    obj._anchors = generateEfficientDetAnchors(imageSize: inW);
-    if (obj._anchors.length != obj._binding.numAnchors) {
+    obj._anchors = generateEfficientDetAnchorsFlat(imageSize: inW);
+    if (obj._anchors.length ~/ 4 != obj._binding.numAnchors) {
       throw StateError(
-        'Anchor count mismatch: generator produced ${obj._anchors.length} '
-        'anchors, model expects ${obj._binding.numAnchors}. '
-        'Input size: ${inW}x$inH.',
+        'Anchor count mismatch: generator produced '
+        '${obj._anchors.length ~/ 4} anchors, model expects '
+        '${obj._binding.numAnchors}. Input size: ${inW}x$inH.',
       );
     }
 
@@ -140,7 +300,7 @@ class ObjectDetection with _TfliteModelDisposable {
   ///   - 3D last-dim 4  → boxes
   ///   - 3D last-dim >4 → class scores
   _DetectorOutputBinding _discoverOutputBinding() {
-    final List<Tensor> outs = _itp.getOutputTensors();
+    final List<Tensor> outs = _requireInterpreter().getOutputTensors();
     int? boxesIdx;
     int? classesIdx;
     int? numAnchors;
@@ -188,40 +348,79 @@ class ObjectDetection with _TfliteModelDisposable {
     ImageTensor pack, {
     double scoreThreshold = 0.0,
   }) async {
-    _floatViews.inputs[0].setAll(0, pack.tensorNHWC);
-    _itp.invoke();
+    final int candidates;
 
-    final boxesT = _itp.getOutputTensor(_binding.boxesIdx);
-    final classesT = _itp.getOutputTensor(_binding.classesIdx);
-    final Float32List boxBuf = boxesT.data.buffer.asFloat32List();
-    final Float32List clsBuf = classesT.data.buffer.asFloat32List();
-
-    final dets = _decodeAnchorsAndScore(
-      boxBuf: boxBuf,
-      clsBuf: clsBuf,
-      scoreThreshold: scoreThreshold,
-    );
+    final CompiledModel? compiled = _compiled;
+    if (compiled == null) {
+      final Interpreter itp = _requireInterpreter();
+      _floatViews.inputs[0].setAll(0, pack.tensorNHWC);
+      itp.invoke();
+      candidates = _decodeAnchorsAndScore(
+        boxBuf:
+            itp.getOutputTensor(_binding.boxesIdx).data.buffer.asFloat32List(),
+        clsBuf: itp
+            .getOutputTensor(_binding.classesIdx)
+            .data
+            .buffer
+            .asFloat32List(),
+        scoreThreshold: scoreThreshold,
+      );
+    } else if (compiled.tensorBufferMode == TensorBufferMode.hostMemory) {
+      // Zero-copy: write into the model's aligned host memory, run, and decode
+      // straight out of the output buffers. Nothing in this path materializes
+      // the multi-megabyte detection heads as Dart lists.
+      //
+      // dispatch() blocks, matching the interpreter branch above (invoke() is
+      // synchronous too). The detector runs this inside its own background
+      // isolate, where blocking is the point and runAsync's helper isolate
+      // would only add a hop.
+      compiled.writeInput(0, (dst) => dst.setAll(0, pack.tensorNHWC));
+      compiled.dispatch();
+      candidates = compiled.readOutput(
+        _binding.boxesIdx,
+        (boxBuf) => compiled.readOutput(
+          _binding.classesIdx,
+          (clsBuf) => _decodeAnchorsAndScore(
+            boxBuf: boxBuf,
+            clsBuf: clsBuf,
+            scoreThreshold: scoreThreshold,
+          ),
+        ),
+      );
+    } else {
+      final List<Float32List> outputs = compiled.run([pack.tensorNHWC]);
+      candidates = _decodeAnchorsAndScore(
+        boxBuf: outputs[_binding.boxesIdx],
+        clsBuf: outputs[_binding.classesIdx],
+        scoreThreshold: scoreThreshold,
+      );
+    }
 
     // Run NMS at IoU 0.45 (MediaPipe default) and cap at 200 candidates.
-    final boxes = dets
-        .map((d) => [
-              d.boundingBox.xmin,
-              d.boundingBox.ymin,
-              d.boundingBox.xmax,
-              d.boundingBox.ymax,
-            ])
-        .toList();
-    final scores = dets.map((d) => d.score).toList();
+    final boxes = List<List<double>>.generate(
+      candidates,
+      (i) => <double>[
+        _decodedBoxes[i * 4],
+        _decodedBoxes[i * 4 + 1],
+        _decodedBoxes[i * 4 + 2],
+        _decodedBoxes[i * 4 + 3],
+      ],
+      growable: false,
+    );
+    final scores = List<double>.generate(
+      candidates,
+      (i) => _decodedScores[i],
+      growable: false,
+    );
     final pruned = weightedNms(boxes, scores, iouThres: 0.45, maxDet: 200);
 
     final List<Detection> kept = [];
     for (final r in pruned) {
-      final src = dets[r.index];
       kept.add(
         Detection(
           boundingBox: RectF(r.box[0], r.box[1], r.box[2], r.box[3]),
           score: r.score,
-          classIndex: src.classIndex,
+          classIndex: _decodedClasses[r.index],
         ),
       );
     }
@@ -229,34 +428,66 @@ class ObjectDetection with _TfliteModelDisposable {
     return _detectionLetterboxRemoval(kept, pack.padding);
   }
 
+  /// Ensures the decode scratch buffers can hold [capacity] candidates,
+  /// preserving the [used] entries already written.
+  void _ensureDecodeCapacity(int capacity, int used) {
+    if (_decodedScores.length >= capacity) return;
+    // Grow geometrically so a scene that gets busier does not reallocate on
+    // every frame.
+    int next = _decodedScores.isEmpty ? 256 : _decodedScores.length;
+    while (next < capacity) {
+      next *= 2;
+    }
+    _decodedBoxes = Float32List(next * 4)..setRange(0, used * 4, _decodedBoxes);
+    _decodedScores = Float32List(next)..setRange(0, used, _decodedScores);
+    _decodedClasses = Int32List(next)..setRange(0, used, _decodedClasses);
+  }
+
   /// Iterates anchors, finds the top class probability per anchor, filters by
   /// [scoreThreshold], and decodes box deltas to normalized `[xmin, ymin,
   /// xmax, ymax]` coordinates in model-input space.
-  List<Detection> _decodeAnchorsAndScore({
+  ///
+  /// Survivors are written densely into [_decodedBoxes] / [_decodedScores] /
+  /// [_decodedClasses]; the return value is how many were written.
+  ///
+  /// The argmax is seeded at [scoreThreshold] rather than negative infinity:
+  /// the overwhelming majority of anchors have no class anywhere near the bar,
+  /// so their entire inner loop is a load plus a not-taken compare and never
+  /// touches the running best. Anchors that do clear the bar fall into the
+  /// slower branch, which resolves ties to the lowest class index exactly as
+  /// an unseeded `max` scan would.
+  int _decodeAnchorsAndScore({
     required Float32List boxBuf,
     required Float32List clsBuf,
     required double scoreThreshold,
   }) {
     final int n = _binding.numAnchors;
     final int k = _binding.numClasses;
-    final List<Detection> out = <Detection>[];
+    final Float32List anchors = _anchors;
+    int count = 0;
 
     for (int i = 0; i < n; i++) {
+      // Find the top class, but only among those at or above the threshold.
       final int classBase = i * k;
-      // Find top class.
-      double bestScore = -double.infinity;
+      final int classEnd = classBase + k;
+      double bestScore = scoreThreshold;
       int bestCls = -1;
-      for (int c = 0; c < k; c++) {
-        final double v = clsBuf[classBase + c];
-        if (v > bestScore) {
-          bestScore = v;
-          bestCls = c;
+      for (int p = classBase; p < classEnd; p++) {
+        if (clsBuf[p] >= bestScore) {
+          final double v = clsBuf[p];
+          if (bestCls < 0 || v > bestScore) {
+            bestScore = v;
+            bestCls = p - classBase;
+          }
         }
       }
-      if (bestScore < scoreThreshold) continue;
+      if (bestCls < 0) continue;
 
-      final List<double> a = _anchors[i];
-      final double cxA = a[0], cyA = a[1], wA = a[2], hA = a[3];
+      final int aBase = i * 4;
+      final double cxA = anchors[aBase];
+      final double cyA = anchors[aBase + 1];
+      final double wA = anchors[aBase + 2];
+      final double hA = anchors[aBase + 3];
       final int boxBase = i * 4;
       // EfficientDet outputs [ty, tx, th, tw] (y first then x, RetinaNet style).
       final double ty = boxBuf[boxBase + 0];
@@ -281,16 +512,19 @@ class ObjectDetection with _TfliteModelDisposable {
       if (ymax > 1.0) ymax = 1.0;
       const double minEdge = 1e-3;
       if (xmax - xmin < minEdge || ymax - ymin < minEdge) continue;
-      out.add(
-        Detection(
-          boundingBox: RectF(xmin, ymin, xmax, ymax),
-          score: bestScore,
-          classIndex: bestCls,
-        ),
-      );
+
+      _ensureDecodeCapacity(count + 1, count);
+      final int o = count * 4;
+      _decodedBoxes[o] = xmin;
+      _decodedBoxes[o + 1] = ymin;
+      _decodedBoxes[o + 2] = xmax;
+      _decodedBoxes[o + 3] = ymax;
+      _decodedScores[count] = bestScore;
+      _decodedClasses[count] = bestCls;
+      count++;
     }
 
-    return out;
+    return count;
   }
 
   /// Releases TensorFlow Lite resources.

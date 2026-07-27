@@ -272,9 +272,49 @@ All inference runs automatically in a background isolate: the UI thread is never
 
 ## Performance
 
+### Inference engines
+
+The package can run inference on either of two LiteRT engines.
+
+| | `Interpreter` (default) | `CompiledModel` (LiteRT Next) |
+|---|---|---|
+| Enable with | nothing, it is the default | `useCompiledModel: true` |
+| Configured by | `performanceConfig` | `accelerators`, `precision` |
+| Hardware | platform delegate (see below) | GPU, with automatic CPU fallback |
+| Status | GPU/Metal/CoreML delegates are deprecated in `flutter_litert`, slated for removal in 4.0.0 | the forward-looking API |
+
+```dart
+// LiteRT Next, GPU with automatic CPU fallback.
+final detector = await ObjectDetector.create(useCompiledModel: true);
+
+// LiteRT Next, pinned to CPU.
+final detector = await ObjectDetector.create(
+  useCompiledModel: true,
+  accelerators: {Accelerator.cpu},
+);
+```
+
+`CompiledModel` is substantially faster wherever a usable GPU exists. Measured
+end-to-end through `ObjectDetector.detect()` on macOS (Apple Silicon, debug
+build), same process, same images:
+
+| Model | `Interpreter` | `CompiledModel` | Speedup |
+|-------|--------------|-----------------|---------|
+| Lite0 | 10.7-11.9 ms | 5.0-8.8 ms | 1.3-2.1x |
+| Lite2 | 29.4-30.4 ms | 8.9-10.9 ms | 2.8-3.3x |
+
+The two engines agree on what they detect. GPU fp16 arithmetic shifts scores by
+roughly 1e-3, which is occasionally enough to swap the rank of two detections
+whose scores are tied to three decimals.
+
+The default is deliberately left on the `Interpreter` path, matching the other
+LiteRT demo packages. Opt in per detector once you have measured it on your
+target hardware.
+
 ### Hardware Acceleration
 
-The package automatically selects the best acceleration strategy for each platform:
+On the `Interpreter` path the package automatically selects the best
+acceleration strategy for each platform:
 
 | Platform | Default Delegate | Speedup | Notes |
 |----------|-----------------|---------|-------|
@@ -295,6 +335,21 @@ Median per-image latency on `cat.jpg` (640×480) with EfficientDet-Lite0 after w
 | macOS host (Apple Silicon) | ~31 ms |
 | iPhone 16 Pro simulator | ~40 ms |
 | Android emulator (Pixel 8, API 36) | ~41 ms |
+
+### Reproducing these numbers
+
+The example app ships the benchmark suite used for every figure above:
+
+```bash
+cd example
+flutter test integration_test/object_detector_benchmark_test.dart -d macos  # e2e + per-stage
+flutter test integration_test/stage_attribution_test.dart -d macos          # invoke vs decode vs NMS
+flutter test integration_test/engine_sweep_test.dart -d macos               # every delegate and engine
+flutter test integration_test/compiledmodel_ab_test.dart -d macos           # engine A/B + agreement
+```
+
+Each case prints a `BENCH_JSON` line for machine diffing alongside the
+human-readable summary.
 
 ### Advanced Performance Configuration
 

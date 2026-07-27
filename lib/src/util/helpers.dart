@@ -49,12 +49,17 @@ Map<int, OutputTensorInfo> testCollectOutputTensorInfo(Interpreter itp) =>
     collectOutputTensorInfo(itp);
 
 /// Shared dispose logic for TFLite model classes.
+///
+/// [_itp] is null when the model is backed by the LiteRT Next [CompiledModel]
+/// engine instead of an [Interpreter]; [_compiled] is null on the interpreter
+/// path. Exactly one of the two is set.
 mixin _TfliteModelDisposable {
   IsolateInterpreter? _iso;
   Delegate? _delegate;
   bool _disposed = false;
 
-  Interpreter get _itp;
+  Interpreter? get _itp;
+  CompiledModel? get _compiled;
 
   void _doDispose() {
     if (_disposed) return;
@@ -62,7 +67,8 @@ mixin _TfliteModelDisposable {
     _delegate?.delete();
     _delegate = null;
     _iso?.close();
-    _itp.close();
+    _itp?.close();
+    _compiled?.close();
   }
 }
 
@@ -75,6 +81,55 @@ String _nameFor(ObjectDetectionModel m) {
   }
 }
 
+/// Generates EfficientDet RetinaNet-style multi-scale anchors, packed into a
+/// flat `[cx, cy, w, h]` [Float32List] of length `anchorCount * 4`.
+///
+/// This is the layout the decoder actually consumes. Lite0 has 19 206 anchors
+/// and Lite2 has 37 629, so the nested `List<List<double>>` shape costs one
+/// heap object plus one bounds-checked indirection per anchor; the flat buffer
+/// is a single allocation the hot loop can walk sequentially.
+///
+/// See [generateEfficientDetAnchors] for the nested-list view of the same data.
+Float32List generateEfficientDetAnchorsFlat({
+  required int imageSize,
+  int minLevel = 3,
+  int maxLevel = 7,
+  int numScales = 3,
+  List<double> aspectRatios = const [1.0, 2.0, 0.5],
+  double anchorScale = 4.0,
+}) {
+  int count = 0;
+  for (int level = minLevel; level <= maxLevel; level++) {
+    final int featureSize = (imageSize / (1 << level)).ceil();
+    count += featureSize * featureSize * numScales * aspectRatios.length;
+  }
+
+  final Float32List anchors = Float32List(count * 4);
+  int w = 0;
+  for (int level = minLevel; level <= maxLevel; level++) {
+    final int stride = 1 << level;
+    final int featureSize = (imageSize / stride).ceil();
+    final double baseAnchorSize = anchorScale * stride.toDouble();
+    for (int y = 0; y < featureSize; y++) {
+      final double cy = (y + 0.5) * stride / imageSize;
+      for (int x = 0; x < featureSize; x++) {
+        final double cx = (x + 0.5) * stride / imageSize;
+        for (int s = 0; s < numScales; s++) {
+          final double scale = math.pow(2, s / numScales).toDouble();
+          for (final aspect in aspectRatios) {
+            final double sqAspect = math.sqrt(aspect);
+            anchors[w++] = cx;
+            anchors[w++] = cy;
+            anchors[w++] = baseAnchorSize * scale * sqAspect / imageSize;
+            anchors[w++] = baseAnchorSize * scale / sqAspect / imageSize;
+          }
+        }
+      }
+    }
+  }
+  return anchors;
+}
+
 /// Generates EfficientDet RetinaNet-style multi-scale anchors.
 ///
 /// EfficientDet uses 5 feature pyramid levels (P3-P7) with `numScales` (3) ×
@@ -83,6 +138,9 @@ String _nameFor(ObjectDetectionModel m) {
 ///
 /// For Lite0 with `imageSize=320`, total anchors = 19 206.
 /// For Lite2 with `imageSize=448`, total anchors = 37 629.
+///
+/// The detector itself uses [generateEfficientDetAnchorsFlat]; this nested-list
+/// view is kept for callers that want to inspect anchors one at a time.
 List<List<double>> generateEfficientDetAnchors({
   required int imageSize,
   int minLevel = 3,
@@ -91,28 +149,20 @@ List<List<double>> generateEfficientDetAnchors({
   List<double> aspectRatios = const [1.0, 2.0, 0.5],
   double anchorScale = 4.0,
 }) {
-  final anchors = <List<double>>[];
-  for (int level = minLevel; level <= maxLevel; level++) {
-    final int stride = 1 << level;
-    final int featureSize = (imageSize / stride).ceil();
-    final double baseAnchorSize = anchorScale * stride.toDouble();
-    for (int y = 0; y < featureSize; y++) {
-      for (int x = 0; x < featureSize; x++) {
-        final double cy = (y + 0.5) * stride / imageSize;
-        final double cx = (x + 0.5) * stride / imageSize;
-        for (int s = 0; s < numScales; s++) {
-          final double scale = math.pow(2, s / numScales).toDouble();
-          for (final aspect in aspectRatios) {
-            final double sqAspect = math.sqrt(aspect);
-            final double w = baseAnchorSize * scale * sqAspect / imageSize;
-            final double h = baseAnchorSize * scale / sqAspect / imageSize;
-            anchors.add([cx, cy, w, h]);
-          }
-        }
-      }
-    }
-  }
-  return anchors;
+  final Float32List flat = generateEfficientDetAnchorsFlat(
+    imageSize: imageSize,
+    minLevel: minLevel,
+    maxLevel: maxLevel,
+    numScales: numScales,
+    aspectRatios: aspectRatios,
+    anchorScale: anchorScale,
+  );
+  return List<List<double>>.generate(
+    flat.length ~/ 4,
+    (i) => <double>[flat[i * 4], flat[i * 4 + 1], flat[i * 4 + 2],
+        flat[i * 4 + 3]],
+    growable: false,
+  );
 }
 
 /// Test-only access to anchor generation.
@@ -150,11 +200,67 @@ List<String> parseLabelMap(String content) => content
     .where((s) => s.isNotEmpty)
     .toList(growable: false);
 
+/// Converts a continuous BGR `CV_8UC3` [cv.Mat] to a `[-1, 1]`-normalized RGB
+/// float tensor using OpenCV's SIMD kernels (BGR→RGB swap plus scaled float
+/// conversion) followed by a single bulk copy into [buffer].
+///
+/// Falls back to the scalar Dart loop ([bgrBytesToSignedFloat32]) for
+/// non-`CV_8UC3` or non-continuous inputs, which produces identical values.
+@visibleForTesting
+Float32List bgrMatToSignedFloat32(
+  cv.Mat mat, {
+  required int totalPixels,
+  Float32List? buffer,
+}) {
+  // BGRA (4ch) and grayscale (1ch) inputs must be colour-converted to 3-channel
+  // BGR first: both the SIMD path below and the byte fallback assume 3
+  // bytes/pixel, so a non-BGR stride overruns the buffer (BGRA) or under-reads
+  // it (grayscale) and corrupts the tensor.
+  cv.Mat? owned;
+  cv.Mat src = mat;
+  if (mat.type == cv.MatType.CV_8UC4) {
+    src = owned = cv.cvtColor(mat, cv.COLOR_BGRA2BGR);
+  } else if (mat.type == cv.MatType.CV_8UC1) {
+    src = owned = cv.cvtColor(mat, cv.COLOR_GRAY2BGR);
+  }
+  try {
+    if (src.type != cv.MatType.CV_8UC3 || !src.isContinuous) {
+      return bgrBytesToSignedFloat32(
+        bytes: src.data,
+        totalPixels: totalPixels,
+        buffer: buffer,
+      );
+    }
+    final cv.Mat rgb = cv.cvtColor(src, cv.COLOR_BGR2RGB);
+    final cv.Mat f32 = rgb.convertTo(
+      cv.MatType.CV_32FC3,
+      alpha: 1.0 / 127.5,
+      beta: -1.0,
+    );
+    rgb.dispose();
+    final Uint8List raw = f32.data;
+    final Float32List view = Float32List.view(
+      raw.buffer,
+      raw.offsetInBytes,
+      totalPixels * 3,
+    );
+    final Float32List tensor = buffer ?? Float32List(totalPixels * 3);
+    tensor.setAll(0, view);
+    f32.dispose();
+    return tensor;
+  } finally {
+    owned?.dispose();
+  }
+}
+
 /// Converts a cv.Mat image to a normalized float32 tensor with letterboxing.
 ///
 /// Performs aspect-preserving resize with black padding and normalizes pixel
 /// values to the `[-1.0, 1.0]` range expected by EfficientDet float32/float16
 /// models (mean=127.5, std=127.5). Channel order is BGR→RGB.
+///
+/// Pass [buffer] to write into a caller-owned tensor and avoid allocating a
+/// fresh `outW * outH * 3` [Float32List] on every frame.
 ///
 /// The input cv.Mat is NOT disposed by this function.
 ImageTensor convertImageToTensor(
@@ -173,29 +279,43 @@ ImageTensor convertImageToTensor(
     targetHeight: outH,
   );
 
-  final cv.Mat resized = cv.resize(
-    src,
-    (lbp.newWidth, lbp.newHeight),
-    interpolation: cv.INTER_LINEAR,
-  );
+  // Skip the resize when the source already matches the target geometry, and
+  // skip the border copy when the letterbox is degenerate (square source into
+  // a square model input). A non-continuous source still goes through
+  // cv.resize so the conversion below always reads tightly packed rows.
+  final bool needsResize =
+      inW != lbp.newWidth || inH != lbp.newHeight || !src.isContinuous;
+  final cv.Mat resized = needsResize
+      ? cv.resize(
+          src,
+          (lbp.newWidth, lbp.newHeight),
+          interpolation: cv.INTER_LINEAR,
+        )
+      : src;
 
-  final cv.Mat padded = cv.copyMakeBorder(
-    resized,
-    lbp.padTop,
-    lbp.padBottom,
-    lbp.padLeft,
-    lbp.padRight,
-    cv.BORDER_CONSTANT,
-    value: cv.Scalar.black,
-  );
-  resized.dispose();
+  final bool needsPad = lbp.padTop != 0 ||
+      lbp.padBottom != 0 ||
+      lbp.padLeft != 0 ||
+      lbp.padRight != 0;
+  final cv.Mat padded = needsPad
+      ? cv.copyMakeBorder(
+          resized,
+          lbp.padTop,
+          lbp.padBottom,
+          lbp.padLeft,
+          lbp.padRight,
+          cv.BORDER_CONSTANT,
+          value: cv.Scalar.black,
+        )
+      : resized;
+  if (needsResize && needsPad) resized.dispose();
 
-  final Float32List tensor = bgrBytesToSignedFloat32(
-    bytes: padded.data,
+  final Float32List tensor = bgrMatToSignedFloat32(
+    padded,
     totalPixels: outW * outH,
     buffer: buffer,
   );
-  padded.dispose();
+  if (needsResize || needsPad) padded.dispose();
 
   final double padTopNorm = lbp.padTop / outH;
   final double padBottomNorm = lbp.padBottom / outH;

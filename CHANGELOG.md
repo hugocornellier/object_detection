@@ -1,3 +1,43 @@
+## 0.4.0
+
+* Add the LiteRT Next `CompiledModel` engine as an opt-in alternative to the
+  `Interpreter` path, matching `face_detection_tflite`, `pose_detection` and
+  `hand_detection`. `ObjectDetector.create` / `initialize` and
+  `ObjectDetection.createCompiledFromBuffer` take `useCompiledModel`,
+  `accelerators` and `precision`. Default remains the `Interpreter` path.
+  Measured end-to-end on macOS (Apple Silicon): Lite0 1.3-2.1x faster, Lite2
+  2.8-3.3x faster.
+* The compiled engine uses `TensorBufferMode.hostMemory` and the
+  `writeInput` / `dispatch` / `readOutput` zero-copy path, so the detection
+  heads (~1.8M floats per frame for Lite0, ~3.4M for Lite2) are decoded as
+  views of model-owned memory instead of being copied into fresh Dart lists.
+  Measured 1.4x faster than the managed-buffer `runAsync` path. Falls back to
+  managed buffers where host memory is unavailable.
+* Preprocessing now uses OpenCV's SIMD `cvtColor` + `convertTo` kernels rather
+  than a per-pixel Dart loop, via the new `bgrMatToSignedFloat32`. Measured
+  4.1-4.5x faster at the tensor-conversion step, numerically equivalent to the
+  scalar path (max absolute difference of one float32 ULP).
+* `convertImageToTensor` skips `cv.resize` when the source already matches the
+  target geometry and skips `cv.copyMakeBorder` when the letterbox is empty.
+* The detection isolate reuses one input tensor buffer for its whole life
+  instead of allocating 1.2 MB (Lite0) or 2.4 MB (Lite2) per frame.
+  `ObjectDetection.newInputBuffer()` exposes the same for direct API users.
+* Anchors are generated into a flat `Float32List` instead of one `List<double>`
+  per anchor (19 206 of them for Lite0, 37 629 for Lite2), and the decode loop
+  seeds its argmax at the score threshold and writes survivors into reusable
+  typed scratch buffers. Measured 1.2x faster at the decode step, with
+  identical output. New `generateEfficientDetAnchorsFlat`;
+  `generateEfficientDetAnchors` is unchanged and now delegates to it.
+* Add `ObjectDetection.usesCompiledModel` and
+  `ObjectDetection.activeAccelerators` so callers can see which engine and
+  accelerators a model actually compiled to.
+* Re-export `Accelerator` and `Precision` from `flutter_litert`.
+* Add a benchmark suite to the example: end-to-end and per-stage timings,
+  invoke-vs-decode-vs-NMS attribution, a delegate/engine sweep, and an
+  engine A/B that asserts the two engines agree. Each emits `BENCH_JSON`.
+* Add the engine toggle to all three example screens so the difference is
+  visible against the reported inference time.
+
 ## 0.3.0
 
 * Fix confidence decoding for both bundled EfficientDet-Lite variants. Their

@@ -68,11 +68,17 @@ class ObjectDetector {
   static Future<ObjectDetector> create({
     ObjectDetectionModel model = ObjectDetectionModel.efficientDetLite0,
     PerformanceConfig performanceConfig = const PerformanceConfig(),
+    bool useCompiledModel = false,
+    Set<Accelerator> accelerators = const {Accelerator.gpu, Accelerator.cpu},
+    Precision precision = Precision.fp16,
   }) async {
     final detector = ObjectDetector();
     await detector.initialize(
       model: model,
       performanceConfig: performanceConfig,
+      useCompiledModel: useCompiledModel,
+      accelerators: accelerators,
+      precision: precision,
     );
     return detector;
   }
@@ -89,12 +95,38 @@ class ObjectDetector {
   /// Calling [initialize] twice without [dispose] throws [StateError].
   ///
   /// The [model] argument specifies which TFLite model variant to load.
-  /// The [performanceConfig] parameter controls hardware acceleration:
+  /// The [performanceConfig] parameter controls hardware acceleration on the
+  /// [Interpreter] path:
   /// - iOS: Metal GPU delegate (auto)
   /// - Android/macOS/Linux/Windows: XNNPACK (auto)
+  ///
+  /// Set [useCompiledModel] to run on the LiteRT Next [CompiledModel] engine
+  /// instead. That path ignores [performanceConfig] and is configured through
+  /// [accelerators] (default: try GPU, fall back to CPU) and [precision]. It is
+  /// substantially faster than XNNPACK wherever a GPU is available, and it is
+  /// the forward-looking API: the interpreter GPU/Metal/CoreML delegates are
+  /// deprecated in `flutter_litert` and slated for removal in 4.0.0.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Default: Interpreter + platform delegate.
+  /// await detector.initialize();
+  ///
+  /// // LiteRT Next, GPU with automatic CPU fallback.
+  /// await detector.initialize(useCompiledModel: true);
+  ///
+  /// // LiteRT Next, pinned to CPU.
+  /// await detector.initialize(
+  ///   useCompiledModel: true,
+  ///   accelerators: {Accelerator.cpu},
+  /// );
+  /// ```
   Future<void> initialize({
     ObjectDetectionModel model = ObjectDetectionModel.efficientDetLite0,
     PerformanceConfig performanceConfig = const PerformanceConfig(),
+    bool useCompiledModel = false,
+    Set<Accelerator> accelerators = const {Accelerator.gpu, Accelerator.cpu},
+    Precision precision = Precision.fp16,
   }) async {
     if (isReady) {
       throw StateError('ObjectDetector already initialized');
@@ -118,6 +150,9 @@ class ObjectDetector {
         labelsBytes: results[1].buffer.asUint8List(),
         model: model,
         performanceConfig: performanceConfig,
+        useCompiledModel: useCompiledModel,
+        accelerators: accelerators,
+        precision: precision,
       );
 
       _worker = worker;
@@ -492,6 +527,11 @@ class ObjectDetector {
           mode: performanceMode,
           numThreads: data.numThreads,
         ),
+        useCompiledModel: data.useCompiledModel,
+        accelerators: data.acceleratorIndices
+            .map((i) => Accelerator.values[i])
+            .toSet(),
+        precision: Precision.values[data.precisionIndex],
       );
 
       mainSendPort.send(workerReceivePort.sendPort);
@@ -578,6 +618,9 @@ class _ObjectDetectorWorker extends IsolateWorkerBase {
     required Uint8List labelsBytes,
     required ObjectDetectionModel model,
     required PerformanceConfig performanceConfig,
+    required bool useCompiledModel,
+    required Set<Accelerator> accelerators,
+    required Precision precision,
   }) async {
     await initWorker(
       (sendPort) => Isolate.spawn(
@@ -589,6 +632,9 @@ class _ObjectDetectorWorker extends IsolateWorkerBase {
           modelName: model.name,
           performanceModeName: performanceConfig.mode.name,
           numThreads: performanceConfig.numThreads,
+          useCompiledModel: useCompiledModel,
+          acceleratorIndices: accelerators.map((a) => a.index).toList(),
+          precisionIndex: precision.index,
         ),
         debugName: 'ObjectDetector.detection',
       ),

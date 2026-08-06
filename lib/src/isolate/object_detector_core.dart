@@ -64,7 +64,7 @@ class _ObjectDetectorCore {
     PerformanceConfig performanceConfig = const PerformanceConfig(),
     bool useCompiledModel = false,
     Set<Accelerator> accelerators = const {Accelerator.gpu, Accelerator.cpu},
-    Precision precision = Precision.fp16,
+    Precision precision = Precision.fp32,
   }) async {
     try {
       _model = useCompiledModel

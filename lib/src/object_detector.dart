@@ -70,7 +70,7 @@ class ObjectDetector {
     PerformanceConfig performanceConfig = const PerformanceConfig(),
     bool useCompiledModel = false,
     Set<Accelerator> accelerators = const {Accelerator.gpu, Accelerator.cpu},
-    Precision precision = Precision.fp16,
+    Precision precision = Precision.fp32,
   }) async {
     final detector = ObjectDetector();
     await detector.initialize(
@@ -126,7 +126,7 @@ class ObjectDetector {
     PerformanceConfig performanceConfig = const PerformanceConfig(),
     bool useCompiledModel = false,
     Set<Accelerator> accelerators = const {Accelerator.gpu, Accelerator.cpu},
-    Precision precision = Precision.fp16,
+    Precision precision = Precision.fp32,
   }) async {
     if (isReady) {
       throw StateError('ObjectDetector already initialized');

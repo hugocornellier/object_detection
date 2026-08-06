@@ -161,7 +161,7 @@ class ObjectDetection with _TfliteModelDisposable {
     Uint8List modelBytes,
     ObjectDetectionModel model, {
     Set<Accelerator> accelerators = const {Accelerator.gpu, Accelerator.cpu},
-    Precision precision = Precision.fp16,
+    Precision precision = Precision.fp32,
     bool forceCpu = false,
     TensorBufferMode tensorBufferMode = TensorBufferMode.hostMemory,
   }) async {

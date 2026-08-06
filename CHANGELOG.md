@@ -1,5 +1,17 @@
 ## 0.4.0
 
+* **Default precision is now `Precision.fp32` instead of `fp16`.** This changes
+  numeric output. `flutter_litert` 3.8.0 changed its own default for the same
+  reason: across 29 published detection models measured on five GPUs, fp16
+  matched a plain-CPU reference for only about a fifth of them, while fp32
+  matched every model that compiled. These graphs emit pixel-space coordinates
+  and landmark positions, and fp16 carries about three decimal digits of
+  mantissa, so the error lands directly on output geometry. The cost is real and
+  worth stating plainly: fp32 is a median 29.9% slower on GPU across those five
+  GPUs, with Apple M4 the lone exception at 6.5% faster. Pass
+  `precision: Precision.fp16` explicitly to restore the previous behaviour,
+  ideally per model and validated on your target GPU.
+* Pin `flutter_litert` to `^3.8.0`.
 * Add the LiteRT Next `CompiledModel` engine as an opt-in alternative to the
   `Interpreter` path, matching `face_detection_tflite`, `pose_detection` and
   `hand_detection`. `ObjectDetector.create` / `initialize` and

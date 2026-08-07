@@ -140,7 +140,8 @@ void main() {
       // background isolate, so runAsync's helper isolate is a pure extra hop.
       for (final tensorMode in TensorBufferMode.values) {
         try {
-          final CompiledModel compiled = CompiledModel.fromBufferWithGpuFallback(
+          final CompiledModel compiled =
+              CompiledModel.fromBufferWithGpuFallback(
             modelBytes,
             precision: Precision.fp16,
             tensorBufferMode: tensorMode,

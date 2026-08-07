@@ -29,8 +29,7 @@ double _p50Ms(List<int> us) {
   return s[s.length ~/ 2] / 1000.0;
 }
 
-double _meanMs(List<int> us) =>
-    us.reduce((a, b) => a + b) / us.length / 1000.0;
+double _meanMs(List<int> us) => us.reduce((a, b) => a + b) / us.length / 1000.0;
 
 void _emit(String label, List<int> us) {
   print(
@@ -71,8 +70,9 @@ void main() {
     final tag = model.name;
 
     testWidgets('[$tag] invoke vs decode vs nms', (_) async {
-      final bytes =
-          (await rootBundle.load('assets/samples/street.jpg')).buffer.asUint8List();
+      final bytes = (await rootBundle.load('assets/samples/street.jpg'))
+          .buffer
+          .asUint8List();
       final mat = cv.imdecode(bytes, cv.IMREAD_COLOR);
 
       final itp = await Interpreter.fromAsset(
@@ -110,8 +110,7 @@ void main() {
 
       views.inputs[0].setAll(0, pack.tensorNHWC);
       itp.invoke();
-      final boxBuf =
-          itp.getOutputTensor(boxesIdx).data.buffer.asFloat32List();
+      final boxBuf = itp.getOutputTensor(boxesIdx).data.buffer.asFloat32List();
       final clsBuf =
           itp.getOutputTensor(classesIdx).data.buffer.asFloat32List();
 

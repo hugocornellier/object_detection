@@ -528,9 +528,8 @@ class ObjectDetector {
           numThreads: data.numThreads,
         ),
         useCompiledModel: data.useCompiledModel,
-        accelerators: data.acceleratorIndices
-            .map((i) => Accelerator.values[i])
-            .toSet(),
+        accelerators:
+            data.acceleratorIndices.map((i) => Accelerator.values[i]).toSet(),
         precision: Precision.values[data.precisionIndex],
       );
 

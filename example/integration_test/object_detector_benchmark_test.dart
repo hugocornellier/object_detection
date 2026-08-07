@@ -134,8 +134,7 @@ void main() {
       for (final path in kSamples) {
         final name = path.split('/').last;
         testWidgets('e2e $name', (_) async {
-          final bytes =
-              (await rootBundle.load(path)).buffer.asUint8List();
+          final bytes = (await rootBundle.load(path)).buffer.asUint8List();
           final stats = await timeAsync(
             '$modelTag/e2e/$name',
             () async => detector.detect(bytes),
@@ -159,8 +158,7 @@ void main() {
       for (final path in kSamples) {
         final name = path.split('/').last;
         testWidgets('stages $name', (_) async {
-          final bytes =
-              (await rootBundle.load(path)).buffer.asUint8List();
+          final bytes = (await rootBundle.load(path)).buffer.asUint8List();
 
           // Stage 1: JPEG decode.
           final decodeStats = timeSync('$modelTag/decode/$name', () {

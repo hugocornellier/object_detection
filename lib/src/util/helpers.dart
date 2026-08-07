@@ -159,8 +159,12 @@ List<List<double>> generateEfficientDetAnchors({
   );
   return List<List<double>>.generate(
     flat.length ~/ 4,
-    (i) => <double>[flat[i * 4], flat[i * 4 + 1], flat[i * 4 + 2],
-        flat[i * 4 + 3]],
+    (i) => <double>[
+      flat[i * 4],
+      flat[i * 4 + 1],
+      flat[i * 4 + 2],
+      flat[i * 4 + 3]
+    ],
     growable: false,
   );
 }

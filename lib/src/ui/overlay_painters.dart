@@ -224,43 +224,25 @@ class ObjectCameraDetectionPainter extends CustomPainter {
     final double sh = imageSize.height;
     if (sw <= 0 || sh <= 0) return;
 
-    // Cover-fit: scale so the source fills the view, centering the overflowing
-    // axis. Matches CameraPreview's BoxFit.cover behaviour.
-    final double sourceAspect = sw / sh;
-    final double viewAspect = size.width / size.height;
-    late final double scale;
-    late final double offsetX;
-    late final double offsetY;
-    if (sourceAspect > viewAspect) {
-      scale = size.height / sh;
-      offsetX = (size.width - sw * scale) / 2;
-      offsetY = 0.0;
-    } else {
-      scale = size.width / sw;
-      offsetX = 0.0;
-      offsetY = (size.height - sh * scale) / 2;
-    }
-
-    double mapX(double x) {
-      final double raw = x * scale + offsetX;
-      return mirrorHorizontally ? size.width - raw : raw;
-    }
-
-    double mapY(double y) => y * scale + offsetY;
+    final t = CoverFitTransform.cover(
+      sourceWidth: sw,
+      sourceHeight: sh,
+      viewWidth: size.width,
+      viewHeight: size.height,
+      mirror: mirrorHorizontally,
+    );
 
     for (final DetectedObject obj in detections) {
       final Color color = boundingBoxColor ?? colorForClass(obj.category.index);
       final BoundingBox bb = obj.boundingBox;
 
-      final double x1 = mapX(bb.topLeft.x);
-      final double x2 = mapX(bb.bottomRight.x);
-      final double y1 = mapY(bb.topLeft.y);
-      final double y2 = mapY(bb.bottomRight.y);
+      final p1 = t.map(bb.topLeft.x, bb.topLeft.y);
+      final p2 = t.map(bb.bottomRight.x, bb.bottomRight.y);
       final Rect rect = Rect.fromLTRB(
-        math.min(x1, x2),
-        math.min(y1, y2),
-        math.max(x1, x2),
-        math.max(y1, y2),
+        math.min(p1.dx, p2.dx),
+        math.min(p1.dy, p2.dy),
+        math.max(p1.dx, p2.dx),
+        math.max(p1.dy, p2.dy),
       );
 
       final Paint boxPaint = Paint()

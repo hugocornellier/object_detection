@@ -1,3 +1,17 @@
+## 1.0.0
+
+* First stable release. The API has been unchanged across the 0.4.x line and is
+  now considered settled, so this is a version-number change rather than a
+  functional one, published alongside the fix below.
+* **Fixed: a cropped `cv.Mat` passed to `detectFromMat` returned no detections.**
+  `Mat.data` ignores row stride, so a non-continuous Mat, which is what
+  `mat.region(...)` returns, was read as though its rows were tightly packed
+  and arrived scrambled. Passing a cropped view produced zero detections or
+  nonsense labels; the same crop with `.clone()` worked. Non-continuous input
+  is now packed automatically, so no `.clone()` is needed at the call site.
+  `face_detection_tflite`, `pose_detection` and `hand_detection` already
+  guarded against this; this brings the remaining packages in line.
+
 ## 0.4.0
 
 * **Default precision is now `Precision.fp32` instead of `fp16`.** This changes

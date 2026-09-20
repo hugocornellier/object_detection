@@ -217,6 +217,11 @@ class ObjectDetector {
   /// Detects objects in a pre-decoded [cv.Mat] image.
   ///
   /// The Mat is NOT disposed by this method. The caller is responsible for disposal.
+  /// Accepts a non-continuous Mat, such as the view `mat.region(...)` returns.
+  /// `Mat.data` ignores row stride, so such a Mat is packed into a continuous
+  /// copy before its bytes are read; passing a cropped view is safe and needs
+  /// no `.clone()` at the call site. The supplied Mat is left untouched.
+  ///
   Future<List<DetectedObject>> detectFromMat(
     cv.Mat image, {
     ObjectDetectorOptions options = ObjectDetectorOptions.defaults,
@@ -489,15 +494,36 @@ class ObjectDetector {
     }
   }
 
+  /// Extracts the fields [detectFromMatBytes] needs from [image].
+  ///
+  /// Mat.data ignores row stride, so a non-continuous Mat (e.g. an ROI view
+  /// from region()) would ship scrambled pixels. Pack it into a continuous
+  /// copy first. The returned bytes are copied out before the clone is
+  /// disposed, so the caller owns plain data either way.
   ({Uint8List data, int width, int height, int matType}) _extractMatFields(
     cv.Mat image,
-  ) =>
-      (
-        data: image.data,
-        width: image.cols,
-        height: image.rows,
-        matType: image.type.value,
-      );
+  ) {
+    if (!image.isContinuous) {
+      final cv.Mat packed = image.clone();
+      try {
+        final Uint8List view = packed.data;
+        return (
+          data: Uint8List(view.length)..setAll(0, view),
+          width: packed.cols,
+          height: packed.rows,
+          matType: packed.type.value,
+        );
+      } finally {
+        packed.dispose();
+      }
+    }
+    return (
+      data: image.data,
+      width: image.cols,
+      height: image.rows,
+      matType: image.type.value,
+    );
+  }
 
   /// Detection isolate entry point.
   @pragma('vm:entry-point')

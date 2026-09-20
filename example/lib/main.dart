@@ -783,7 +783,7 @@ class _StillImageScreenState extends State<StillImageScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               itemCount: _samples.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, i) => ActionChip(
                 label: Text(_samples[i].$1),
                 onPressed:

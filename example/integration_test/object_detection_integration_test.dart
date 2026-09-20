@@ -26,10 +26,7 @@ void main() {
       await detector.initialize();
       expect(detector.isReady, true);
 
-      await expectLater(
-        detector.initialize(),
-        throwsA(isA<StateError>()),
-      );
+      await expectLater(detector.initialize(), throwsA(isA<StateError>()));
 
       await detector.dispose();
     });
@@ -49,11 +46,13 @@ void main() {
 
       expect(
         () => detector.detect(bytes),
-        throwsA(isA<StateError>().having(
-          (e) => e.message,
-          'message',
-          contains('not initialized'),
-        )),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('not initialized'),
+          ),
+        ),
       );
     });
 
@@ -74,27 +73,29 @@ void main() {
       await detector.dispose();
     });
 
-    test('mutually-exclusive allowlist + denylist throws ArgumentError',
-        () async {
-      final detector = ObjectDetector();
-      await detector.initialize();
+    test(
+      'mutually-exclusive allowlist + denylist throws ArgumentError',
+      () async {
+        final detector = ObjectDetector();
+        await detector.initialize();
 
-      final ByteData data = await rootBundle.load('assets/samples/cat.jpg');
-      final Uint8List bytes = data.buffer.asUint8List();
+        final ByteData data = await rootBundle.load('assets/samples/cat.jpg');
+        final Uint8List bytes = data.buffer.asUint8List();
 
-      await expectLater(
-        detector.detect(
-          bytes,
-          options: const ObjectDetectorOptions(
-            categoryAllowlist: ['cat'],
-            categoryDenylist: ['dog'],
+        await expectLater(
+          detector.detect(
+            bytes,
+            options: const ObjectDetectorOptions(
+              categoryAllowlist: ['cat'],
+              categoryDenylist: ['dog'],
+            ),
           ),
-        ),
-        throwsA(isA<ArgumentError>()),
-      );
+          throwsA(isA<ArgumentError>()),
+        );
 
-      await detector.dispose();
-    });
+        await detector.dispose();
+      },
+    );
   });
 
   group('ObjectDetector - detect() with real images', () {
@@ -119,13 +120,21 @@ void main() {
       );
       sw.stop();
 
-      print('cat.jpg: ${sw.elapsedMilliseconds}ms, ${dets.length} detections, '
-          'top: ${dets.take(5).map((d) => "${d.categoryName}(${d.score.toStringAsFixed(2)})").join(", ")}');
+      print(
+        'cat.jpg: ${sw.elapsedMilliseconds}ms, ${dets.length} detections, '
+        'top: ${dets.take(5).map((d) => "${d.categoryName}(${d.score.toStringAsFixed(2)})").join(", ")}',
+      );
 
-      expect(dets, isNotEmpty,
-          reason: 'Should find at least one object in cat.jpg');
-      expect(dets.any((d) => d.categoryName == 'cat'), isTrue,
-          reason: 'cat.jpg should contain a "cat" detection');
+      expect(
+        dets,
+        isNotEmpty,
+        reason: 'Should find at least one object in cat.jpg',
+      );
+      expect(
+        dets.any((d) => d.categoryName == 'cat'),
+        isTrue,
+        reason: 'cat.jpg should contain a "cat" detection',
+      );
 
       // Bounding-box sanity.
       for (final d in dets) {
@@ -151,8 +160,10 @@ void main() {
       );
       sw.stop();
 
-      print('dog.jpg: ${sw.elapsedMilliseconds}ms, ${dets.length} detections, '
-          'top: ${dets.take(5).map((d) => "${d.categoryName}(${d.score.toStringAsFixed(2)})").join(", ")}');
+      print(
+        'dog.jpg: ${sw.elapsedMilliseconds}ms, ${dets.length} detections, '
+        'top: ${dets.take(5).map((d) => "${d.categoryName}(${d.score.toStringAsFixed(2)})").join(", ")}',
+      );
 
       expect(dets, isNotEmpty);
     });
@@ -168,32 +179,41 @@ void main() {
       sw.stop();
 
       print(
-          'people.jpg: ${sw.elapsedMilliseconds}ms, ${dets.length} detections, '
-          'top: ${dets.take(5).map((d) => "${d.categoryName}(${d.score.toStringAsFixed(2)})").join(", ")}');
+        'people.jpg: ${sw.elapsedMilliseconds}ms, ${dets.length} detections, '
+        'top: ${dets.take(5).map((d) => "${d.categoryName}(${d.score.toStringAsFixed(2)})").join(", ")}',
+      );
 
       expect(dets, isNotEmpty);
-      expect(dets.any((d) => d.categoryName == 'person'), isTrue,
-          reason: 'people.jpg should contain a "person" detection');
+      expect(
+        dets.any((d) => d.categoryName == 'person'),
+        isTrue,
+        reason: 'people.jpg should contain a "person" detection',
+      );
     });
 
     test('benchmark: median latency over 5 runs on cat.jpg', () async {
       final ByteData data = await rootBundle.load('assets/samples/cat.jpg');
       final Uint8List bytes = data.buffer.asUint8List();
       // Warm-up.
-      await detector.detect(bytes,
-          options: const ObjectDetectorOptions(scoreThreshold: 0.3));
+      await detector.detect(
+        bytes,
+        options: const ObjectDetectorOptions(scoreThreshold: 0.3),
+      );
       final times = <int>[];
       for (int i = 0; i < 5; i++) {
         final sw = Stopwatch()..start();
-        await detector.detect(bytes,
-            options: const ObjectDetectorOptions(scoreThreshold: 0.3));
+        await detector.detect(
+          bytes,
+          options: const ObjectDetectorOptions(scoreThreshold: 0.3),
+        );
         sw.stop();
         times.add(sw.elapsedMilliseconds);
       }
       times.sort();
       final median = times[times.length ~/ 2];
       print(
-          'benchmark cat.jpg (efficientDetLite0): runs=$times median=${median}ms');
+        'benchmark cat.jpg (efficientDetLite0): runs=$times median=${median}ms',
+      );
       // Detection should be reasonably fast on default platform; 2s is plenty.
       expect(median, lessThan(2000));
     });
@@ -209,8 +229,11 @@ void main() {
         bytes,
         options: const ObjectDetectorOptions(scoreThreshold: 0.9),
       );
-      expect(high.length, lessThanOrEqualTo(low.length),
-          reason: 'higher threshold must keep no more than lower threshold');
+      expect(
+        high.length,
+        lessThanOrEqualTo(low.length),
+        reason: 'higher threshold must keep no more than lower threshold',
+      );
       for (final d in high) {
         expect(d.score, greaterThanOrEqualTo(0.9));
       }
@@ -221,8 +244,10 @@ void main() {
       final Uint8List bytes = data.buffer.asUint8List();
       final capped = await detector.detect(
         bytes,
-        options:
-            const ObjectDetectorOptions(scoreThreshold: 0.0, maxResults: 3),
+        options: const ObjectDetectorOptions(
+          scoreThreshold: 0.0,
+          maxResults: 3,
+        ),
       );
       expect(capped.length, lessThanOrEqualTo(3));
     });
@@ -254,11 +279,15 @@ void main() {
             data.buffer.asUint8List(),
             options: const ObjectDetectorOptions(scoreThreshold: 0.2),
           );
-          print('${model.name}: ${dets.length} detections, top='
-              '${dets.isEmpty ? "(none)" : dets.first.categoryName}');
-          expect(dets, isNotEmpty,
-              reason:
-                  '${model.name} should produce some detections on cat.jpg');
+          print(
+            '${model.name}: ${dets.length} detections, top='
+            '${dets.isEmpty ? "(none)" : dets.first.categoryName}',
+          );
+          expect(
+            dets,
+            isNotEmpty,
+            reason: '${model.name} should produce some detections on cat.jpg',
+          );
         } finally {
           await detector.dispose();
         }

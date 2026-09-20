@@ -59,19 +59,13 @@ class ObjectDetection with _TfliteModelDisposable {
   Float32List _decodedScores = Float32List(0);
   Int32List _decodedClasses = Int32List(0);
 
-  ObjectDetection._interpreter(
-    Interpreter itp,
-    this._inW,
-    this._inH,
-  )   : _itp = itp,
-        _compiled = null;
+  ObjectDetection._interpreter(Interpreter itp, this._inW, this._inH)
+    : _itp = itp,
+      _compiled = null;
 
-  ObjectDetection._compiled(
-    CompiledModel compiled,
-    this._inW,
-    this._inH,
-  )   : _itp = null,
-        _compiled = compiled;
+  ObjectDetection._compiled(CompiledModel compiled, this._inW, this._inH)
+    : _itp = null,
+      _compiled = compiled;
 
   Interpreter _requireInterpreter() {
     final itp = _itp;
@@ -122,16 +116,15 @@ class ObjectDetection with _TfliteModelDisposable {
     ObjectDetectionModel model, {
     InterpreterOptions? options,
     PerformanceConfig? performanceConfig,
-  }) =>
-      _createWithLoader(
-        model: model,
-        load: (opts) => Interpreter.fromAsset(
-          'packages/object_detection/assets/models/${_nameFor(model)}',
-          options: opts,
-        ),
-        options: options,
-        performanceConfig: performanceConfig,
-      );
+  }) => _createWithLoader(
+    model: model,
+    load: (opts) => Interpreter.fromAsset(
+      'packages/object_detection/assets/models/${_nameFor(model)}',
+      options: opts,
+    ),
+    options: options,
+    performanceConfig: performanceConfig,
+  );
 
   /// Creates an object detection model from pre-loaded TFLite bytes.
   ///
@@ -141,12 +134,11 @@ class ObjectDetection with _TfliteModelDisposable {
     Uint8List modelBytes,
     ObjectDetectionModel model, {
     PerformanceConfig? performanceConfig,
-  }) =>
-      _createWithLoader(
-        model: model,
-        load: (opts) => Interpreter.fromBuffer(modelBytes, options: opts),
-        performanceConfig: performanceConfig,
-      );
+  }) => _createWithLoader(
+    model: model,
+    load: (opts) => Interpreter.fromBuffer(modelBytes, options: opts),
+    performanceConfig: performanceConfig,
+  );
 
   /// Creates an object detection model backed by the LiteRT Next
   /// [CompiledModel] engine instead of an [Interpreter] plus delegate.
@@ -217,8 +209,10 @@ class ObjectDetection with _TfliteModelDisposable {
         compiled,
         label: 'object detection',
       );
-      final int boxesIdx =
-          indexWhereFloatCount(counts, (f) => f == anchorCount * 4);
+      final int boxesIdx = indexWhereFloatCount(
+        counts,
+        (f) => f == anchorCount * 4,
+      );
       final int classesIdx = indexWhereFloatCount(
         counts,
         (f) => f % anchorCount == 0 && f ~/ anchorCount > 4,
@@ -356,8 +350,11 @@ class ObjectDetection with _TfliteModelDisposable {
       _floatViews.inputs[0].setAll(0, pack.tensorNHWC);
       itp.invoke();
       candidates = _decodeAnchorsAndScore(
-        boxBuf:
-            itp.getOutputTensor(_binding.boxesIdx).data.buffer.asFloat32List(),
+        boxBuf: itp
+            .getOutputTensor(_binding.boxesIdx)
+            .data
+            .buffer
+            .asFloat32List(),
         clsBuf: itp
             .getOutputTensor(_binding.classesIdx)
             .data

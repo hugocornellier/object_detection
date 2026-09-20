@@ -43,12 +43,7 @@ double _meanMs(List<int> us) => us.reduce((a, b) => a + b) / us.length / 1000.0;
 
 void _emit(String label, List<int> us) {
   print(
-    'BENCH_JSON ${jsonEncode({
-          'label': label,
-          'n': us.length,
-          'mean_ms': double.parse(_meanMs(us).toStringAsFixed(4)),
-          'p50_ms': double.parse(_p50Ms(us).toStringAsFixed(4)),
-        })}',
+    'BENCH_JSON ${jsonEncode({'label': label, 'n': us.length, 'mean_ms': double.parse(_meanMs(us).toStringAsFixed(4)), 'p50_ms': double.parse(_p50Ms(us).toStringAsFixed(4))})}',
   );
   print(
     '  ${label.padRight(46)} p50=${_p50Ms(us).toStringAsFixed(3)}ms  '
@@ -80,25 +75,25 @@ void main() {
     final tag = model.name;
 
     testWidgets('[$tag] engine sweep', (_) async {
-      final jpeg = (await rootBundle.load('assets/samples/street.jpg'))
-          .buffer
-          .asUint8List();
+      final jpeg = (await rootBundle.load(
+        'assets/samples/street.jpg',
+      )).buffer.asUint8List();
       final mat = cv.imdecode(jpeg, cv.IMREAD_COLOR);
       final modelBytes = (await rootBundle.load(
         'packages/object_detection/assets/models/${testNameFor(model)}',
-      ))
-          .buffer
-          .asUint8List();
+      )).buffer.asUint8List();
 
-      final int side =
-          model == ObjectDetectionModel.efficientDetLite0 ? 320 : 448;
+      final int side = model == ObjectDetectionModel.efficientDetLite0
+          ? 320
+          : 448;
       final pack = convertImageToTensor(mat, outW: side, outH: side);
       final Float32List input = pack.tensorNHWC;
 
       for (final mode in PerformanceMode.values) {
         try {
-          final (opts, delegate) =
-              InterpreterFactory.create(PerformanceConfig(mode: mode));
+          final (opts, delegate) = InterpreterFactory.create(
+            PerformanceConfig(mode: mode),
+          );
           final itp = Interpreter.fromBuffer(modelBytes, options: opts);
           itp.allocateTensors();
           final views = TensorFloat32Views.capture(itp);
@@ -142,14 +137,12 @@ void main() {
         try {
           final CompiledModel compiled =
               CompiledModel.fromBufferWithGpuFallback(
-            modelBytes,
-            precision: Precision.fp16,
-            tensorBufferMode: tensorMode,
-            onFallback: (e) => print('  (gpu compile fell back: $e)'),
-          );
-          print(
-            '  ${tensorMode.name} compiled on ${compiled.accelerators}',
-          );
+                modelBytes,
+                precision: Precision.fp16,
+                tensorBufferMode: tensorMode,
+                onFallback: (e) => print('  (gpu compile fell back: $e)'),
+              );
+          print('  ${tensorMode.name} compiled on ${compiled.accelerators}');
           _emit(
             '$tag/compiled-sync-${tensorMode.name}/run',
             await _benchAsync(() async => compiled.run([input])),
@@ -195,8 +188,10 @@ void main() {
       );
       interpModel.dispose();
 
-      final compiledModel =
-          await ObjectDetection.createCompiledFromBuffer(modelBytes, model);
+      final compiledModel = await ObjectDetection.createCompiledFromBuffer(
+        modelBytes,
+        model,
+      );
       print('  callWithTensor compiled on ${compiledModel.activeAccelerators}');
       _emit(
         '$tag/callWithTensor/compiled',

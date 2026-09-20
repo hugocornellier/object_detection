@@ -33,12 +33,7 @@ double _meanMs(List<int> us) => us.reduce((a, b) => a + b) / us.length / 1000.0;
 
 void _emit(String label, List<int> us) {
   print(
-    'BENCH_JSON ${jsonEncode({
-          'label': label,
-          'n': us.length,
-          'mean_ms': double.parse(_meanMs(us).toStringAsFixed(4)),
-          'p50_ms': double.parse(_p50Ms(us).toStringAsFixed(4)),
-        })}',
+    'BENCH_JSON ${jsonEncode({'label': label, 'n': us.length, 'mean_ms': double.parse(_meanMs(us).toStringAsFixed(4)), 'p50_ms': double.parse(_p50Ms(us).toStringAsFixed(4))})}',
   );
   print(
     '  $label  mean=${_meanMs(us).toStringAsFixed(3)}ms  '
@@ -70,9 +65,9 @@ void main() {
     final tag = model.name;
 
     testWidgets('[$tag] invoke vs decode vs nms', (_) async {
-      final bytes = (await rootBundle.load('assets/samples/street.jpg'))
-          .buffer
-          .asUint8List();
+      final bytes = (await rootBundle.load(
+        'assets/samples/street.jpg',
+      )).buffer.asUint8List();
       final mat = cv.imdecode(bytes, cv.IMREAD_COLOR);
 
       final itp = await Interpreter.fromAsset(
@@ -111,8 +106,11 @@ void main() {
       views.inputs[0].setAll(0, pack.tensorNHWC);
       itp.invoke();
       final boxBuf = itp.getOutputTensor(boxesIdx).data.buffer.asFloat32List();
-      final clsBuf =
-          itp.getOutputTensor(classesIdx).data.buffer.asFloat32List();
+      final clsBuf = itp
+          .getOutputTensor(classesIdx)
+          .data
+          .buffer
+          .asFloat32List();
 
       final anchors = generateEfficientDetAnchors(imageSize: inW);
 
@@ -143,8 +141,12 @@ void main() {
           final w = math.exp(boxBuf[boxBase + 3]) * a[2];
           out.add(
             Detection(
-              boundingBox:
-                  RectF(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2),
+              boundingBox: RectF(
+                cx - w / 2,
+                cy - h / 2,
+                cx + w / 2,
+                cy + h / 2,
+              ),
               score: best,
               classIndex: bestCls,
             ),
@@ -209,12 +211,14 @@ void main() {
       // Stage C: the List<List<double>> marshalling + weighted NMS.
       final nmsUs = _bench(() {
         final boxes = decoded
-            .map((d) => [
-                  d.boundingBox.xmin,
-                  d.boundingBox.ymin,
-                  d.boundingBox.xmax,
-                  d.boundingBox.ymax,
-                ])
+            .map(
+              (d) => [
+                d.boundingBox.xmin,
+                d.boundingBox.ymin,
+                d.boundingBox.xmax,
+                d.boundingBox.ymax,
+              ],
+            )
             .toList();
         final scores = decoded.map((d) => d.score).toList();
         weightedNms(boxes, scores, iouThres: 0.45, maxDet: 200);
@@ -230,11 +234,10 @@ void main() {
         targetWidth: inW,
         targetHeight: inH,
       );
-      final resized = cv.resize(
-        mat,
-        (lbp.newWidth, lbp.newHeight),
-        interpolation: cv.INTER_LINEAR,
-      );
+      final resized = cv.resize(mat, (
+        lbp.newWidth,
+        lbp.newHeight,
+      ), interpolation: cv.INTER_LINEAR);
       final padded = cv.copyMakeBorder(
         resized,
         lbp.padTop,
@@ -247,10 +250,7 @@ void main() {
       resized.dispose();
 
       final preOldUs = _bench(() {
-        bgrBytesToSignedFloat32(
-          bytes: padded.data,
-          totalPixels: totalPixels,
-        );
+        bgrBytesToSignedFloat32(bytes: padded.data, totalPixels: totalPixels);
       });
       final preNewUs = _bench(() {
         bgrMatToSignedFloat32(

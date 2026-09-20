@@ -7,22 +7,23 @@ void main() {
     expect(
       kDefaultUseCompiledModel,
       isTrue,
-      reason: 'The demo should showcase the faster LiteRT Next engine, '
+      reason:
+          'The demo should showcase the faster LiteRT Next engine, '
           'matching the face/pose/hand demos.',
     );
   });
 
   testWidgets('badge names the engine, not a delegate', (tester) async {
     Future<void> pumpBadge(bool useCompiledModel) => tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: EngineToggleButton(
-                useCompiledModel: useCompiledModel,
-                onPressed: () {},
-              ),
-            ),
+      MaterialApp(
+        home: Scaffold(
+          body: EngineToggleButton(
+            useCompiledModel: useCompiledModel,
+            onPressed: () {},
           ),
-        );
+        ),
+      ),
+    );
 
     await pumpBadge(true);
     expect(find.text('CM'), findsOneWidget);
@@ -77,9 +78,6 @@ void main() {
       ),
     );
     expect(find.text('CM'), findsOneWidget);
-    expect(
-      tester.widget<TextButton>(find.byType(TextButton)).enabled,
-      isFalse,
-    );
+    expect(tester.widget<TextButton>(find.byType(TextButton)).enabled, isFalse);
   });
 }

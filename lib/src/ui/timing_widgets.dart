@@ -7,11 +7,7 @@ class TimingBadge extends StatelessWidget {
   final int totalMs;
   final int? detectionMs;
 
-  const TimingBadge({
-    super.key,
-    required this.totalMs,
-    this.detectionMs,
-  });
+  const TimingBadge({super.key, required this.totalMs, this.detectionMs});
 
   @override
   Widget build(BuildContext context) {
@@ -38,10 +34,7 @@ class TimingBadge extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            Text(
-              perf.label,
-              style: TextStyle(color: perf.color, fontSize: 12),
-            ),
+            Text(perf.label, style: TextStyle(color: perf.color, fontSize: 12)),
             const SizedBox(width: 4),
             const Icon(Icons.info_outline, size: 12, color: Colors.white54),
           ],
@@ -66,9 +59,16 @@ class TimingBadge extends StatelessWidget {
           children: [
             if (detectionMs != null)
               _TimingRow(
-                  label: 'Detection', ms: detectionMs!, color: Colors.green),
+                label: 'Detection',
+                ms: detectionMs!,
+                color: Colors.green,
+              ),
             _TimingRow(
-                label: 'Total', ms: totalMs, color: Colors.blue, isBold: true),
+              label: 'Total',
+              ms: totalMs,
+              color: Colors.blue,
+              isBold: true,
+            ),
             const SizedBox(height: 12),
             _PerformanceIndicator(totalMs: totalMs),
           ],
@@ -109,10 +109,7 @@ class _TimingRow extends StatelessWidget {
               Container(
                 width: 12,
                 height: 12,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
               const SizedBox(width: 8),
               Text(

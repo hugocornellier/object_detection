@@ -89,7 +89,11 @@ void main() {
         detection: det,
         categories: const [
           Category(
-              index: 16, score: 0.8, categoryName: 'cat', displayName: 'cat'),
+            index: 16,
+            score: 0.8,
+            categoryName: 'cat',
+            displayName: 'cat',
+          ),
         ],
         originalSize: const Size(100, 100),
       );
@@ -111,7 +115,11 @@ void main() {
         detection: det,
         categories: const [
           Category(
-              index: 16, score: 0.8, categoryName: 'cat', displayName: 'cat'),
+            index: 16,
+            score: 0.8,
+            categoryName: 'cat',
+            displayName: 'cat',
+          ),
         ],
         originalSize: const Size(100, 100),
       );

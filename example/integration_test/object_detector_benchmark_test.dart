@@ -51,7 +51,8 @@ class Stats {
 
   double get stdDevMs {
     final m = meanMs;
-    final v = samplesUs
+    final v =
+        samplesUs
             .map((u) => math.pow(u / 1000.0 - m, 2).toDouble())
             .reduce((a, b) => a + b) /
         samplesUs.length;
@@ -59,15 +60,15 @@ class Stats {
   }
 
   Map<String, dynamic> toJson() => {
-        'label': label,
-        'n': samplesUs.length,
-        'mean_ms': double.parse(meanMs.toStringAsFixed(4)),
-        'p50_ms': double.parse(p50Ms.toStringAsFixed(4)),
-        'p95_ms': double.parse(p95Ms.toStringAsFixed(4)),
-        'min_ms': double.parse(minMs.toStringAsFixed(4)),
-        'max_ms': double.parse(maxMs.toStringAsFixed(4)),
-        'stddev_ms': double.parse(stdDevMs.toStringAsFixed(4)),
-      };
+    'label': label,
+    'n': samplesUs.length,
+    'mean_ms': double.parse(meanMs.toStringAsFixed(4)),
+    'p50_ms': double.parse(p50Ms.toStringAsFixed(4)),
+    'p95_ms': double.parse(p95Ms.toStringAsFixed(4)),
+    'min_ms': double.parse(minMs.toStringAsFixed(4)),
+    'max_ms': double.parse(maxMs.toStringAsFixed(4)),
+    'stddev_ms': double.parse(stdDevMs.toStringAsFixed(4)),
+  };
 
   void emit() {
     print('BENCH_JSON ${jsonEncode(toJson())}');

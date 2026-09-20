@@ -8,10 +8,7 @@ part of '../object_detection.dart';
 ///
 /// Both models are 90-class COCO detectors (80 valid classes; the label map
 /// has 10 placeholder slots to keep alignment with the original COCO IDs).
-enum ObjectDetectionModel {
-  efficientDetLite0,
-  efficientDetLite2,
-}
+enum ObjectDetectionModel { efficientDetLite0, efficientDetLite2 }
 
 /// Per-call configuration for [ObjectDetector.detect] and friends.
 ///
@@ -49,11 +46,11 @@ class ObjectDetectorOptions {
 
   /// Serializes this options object for isolate transfer.
   Map<String, dynamic> toMap() => {
-        'scoreThreshold': scoreThreshold,
-        'maxResults': maxResults,
-        'categoryAllowlist': categoryAllowlist,
-        'categoryDenylist': categoryDenylist,
-      };
+    'scoreThreshold': scoreThreshold,
+    'maxResults': maxResults,
+    'categoryAllowlist': categoryAllowlist,
+    'categoryDenylist': categoryDenylist,
+  };
 
   /// Creates options from a serialized map.
   factory ObjectDetectorOptions.fromMap(Map<String, dynamic> map) =>
@@ -99,19 +96,19 @@ class Category {
 
   /// Serializes this category for isolate transfer.
   Map<String, dynamic> toMap() => {
-        'index': index,
-        'score': score,
-        'categoryName': categoryName,
-        'displayName': displayName,
-      };
+    'index': index,
+    'score': score,
+    'categoryName': categoryName,
+    'displayName': displayName,
+  };
 
   /// Creates a category from a serialized map.
   factory Category.fromMap(Map<String, dynamic> map) => Category(
-        index: map['index'] as int,
-        score: (map['score'] as num).toDouble(),
-        categoryName: map['categoryName'] as String,
-        displayName: map['displayName'] as String,
-      );
+    index: map['index'] as int,
+    score: (map['score'] as num).toDouble(),
+    categoryName: map['categoryName'] as String,
+    displayName: map['displayName'] as String,
+  );
 
   @override
   String toString() =>
@@ -153,8 +150,8 @@ class DetectedObject {
     required Detection detection,
     required this.categories,
     required this.originalSize,
-  })  : _detection = detection,
-        boundingBox = _computeBoundingBox(detection.boundingBox, originalSize);
+  }) : _detection = detection,
+       boundingBox = _computeBoundingBox(detection.boundingBox, originalSize);
 
   static BoundingBox _computeBoundingBox(RectF r, Size originalSize) {
     final double w = originalSize.width.toDouble();
@@ -190,25 +187,25 @@ class DetectedObject {
 
   /// Serializes this detection for isolate transfer.
   Map<String, dynamic> toMap() => {
-        'detection': _detection.toMap(),
-        'categories': categories.map((c) => c.toMap()).toList(),
-        'originalSize': {
-          'width': originalSize.width,
-          'height': originalSize.height,
-        },
-      };
+    'detection': _detection.toMap(),
+    'categories': categories.map((c) => c.toMap()).toList(),
+    'originalSize': {
+      'width': originalSize.width,
+      'height': originalSize.height,
+    },
+  };
 
   /// Creates a [DetectedObject] from a serialized map.
   factory DetectedObject.fromMap(Map<String, dynamic> map) => DetectedObject(
-        detection: Detection.fromMap(map['detection']),
-        categories: (map['categories'] as List)
-            .map((c) => Category.fromMap(Map<String, dynamic>.from(c as Map)))
-            .toList(),
-        originalSize: Size(
-          (map['originalSize']['width'] as num).toDouble(),
-          (map['originalSize']['height'] as num).toDouble(),
-        ),
-      );
+    detection: Detection.fromMap(map['detection']),
+    categories: (map['categories'] as List)
+        .map((c) => Category.fromMap(Map<String, dynamic>.from(c as Map)))
+        .toList(),
+    originalSize: Size(
+      (map['originalSize']['width'] as num).toDouble(),
+      (map['originalSize']['height'] as num).toDouble(),
+    ),
+  );
 
   @override
   String toString() =>
@@ -249,19 +246,19 @@ class RectF {
 
   /// Converts this rect to a map for isolate serialization.
   Map<String, dynamic> toMap() => {
-        'xmin': xmin,
-        'ymin': ymin,
-        'xmax': xmax,
-        'ymax': ymax,
-      };
+    'xmin': xmin,
+    'ymin': ymin,
+    'xmax': xmax,
+    'ymax': ymax,
+  };
 
   /// Creates a rect from a map.
   factory RectF.fromMap(Map<String, dynamic> map) => RectF(
-        (map['xmin'] as num).toDouble(),
-        (map['ymin'] as num).toDouble(),
-        (map['xmax'] as num).toDouble(),
-        (map['ymax'] as num).toDouble(),
-      );
+    (map['xmin'] as num).toDouble(),
+    (map['ymin'] as num).toDouble(),
+    (map['xmax'] as num).toDouble(),
+    (map['ymax'] as num).toDouble(),
+  );
 }
 
 /// Raw detection output: bounding box + class index + score in normalized
@@ -293,26 +290,27 @@ class Detection {
 
   /// Converts this detection to a map for isolate serialization.
   Map<String, dynamic> toMap() => {
-        'boundingBox': boundingBox.toMap(),
-        'score': score,
-        'classIndex': classIndex,
-        if (imageSize != null)
-          'imageSize': {'width': imageSize!.width, 'height': imageSize!.height},
-      };
+    'boundingBox': boundingBox.toMap(),
+    'score': score,
+    'classIndex': classIndex,
+    if (imageSize != null)
+      'imageSize': {'width': imageSize!.width, 'height': imageSize!.height},
+  };
 
   /// Creates a detection from a map.
   factory Detection.fromMap(Map<String, dynamic> map) => Detection(
-        boundingBox:
-            RectF.fromMap(Map<String, dynamic>.from(map['boundingBox'] as Map)),
-        score: (map['score'] as num).toDouble(),
-        classIndex: map['classIndex'] as int,
-        imageSize: map['imageSize'] != null
-            ? Size(
-                (map['imageSize']['width'] as num).toDouble(),
-                (map['imageSize']['height'] as num).toDouble(),
-              )
-            : null,
-      );
+    boundingBox: RectF.fromMap(
+      Map<String, dynamic>.from(map['boundingBox'] as Map),
+    ),
+    score: (map['score'] as num).toDouble(),
+    classIndex: map['classIndex'] as int,
+    imageSize: map['imageSize'] != null
+        ? Size(
+            (map['imageSize']['width'] as num).toDouble(),
+            (map['imageSize']['height'] as num).toDouble(),
+          )
+        : null,
+  );
 }
 
 /// Image tensor plus padding metadata used to undo letterboxing.

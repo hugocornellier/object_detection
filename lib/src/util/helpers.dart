@@ -27,7 +27,7 @@ class OutputTensorInfo {
 )
 Map<int, OutputTensorInfo> collectOutputTensorInfo(Interpreter itp) {
   final Map<int, OutputTensorInfo> outputs = <int, OutputTensorInfo>{};
-  for (int i = 0;; i++) {
+  for (int i = 0; ; i++) {
     try {
       final Tensor t = itp.getOutputTensor(i);
       outputs[i] = OutputTensorInfo(t.shape, t.data.buffer.asFloat32List());
@@ -163,7 +163,7 @@ List<List<double>> generateEfficientDetAnchors({
       flat[i * 4],
       flat[i * 4 + 1],
       flat[i * 4 + 2],
-      flat[i * 4 + 3]
+      flat[i * 4 + 3],
     ],
     growable: false,
   );
@@ -171,9 +171,7 @@ List<List<double>> generateEfficientDetAnchors({
 
 /// Test-only access to anchor generation.
 @visibleForTesting
-List<List<double>> testGenerateEfficientDetAnchors({
-  required int imageSize,
-}) =>
+List<List<double>> testGenerateEfficientDetAnchors({required int imageSize}) =>
     generateEfficientDetAnchors(imageSize: imageSize);
 
 /// Test-only: exposes the private model-name mapping for unit tests.
@@ -290,14 +288,14 @@ ImageTensor convertImageToTensor(
   final bool needsResize =
       inW != lbp.newWidth || inH != lbp.newHeight || !src.isContinuous;
   final cv.Mat resized = needsResize
-      ? cv.resize(
-          src,
-          (lbp.newWidth, lbp.newHeight),
-          interpolation: cv.INTER_LINEAR,
-        )
+      ? cv.resize(src, (
+          lbp.newWidth,
+          lbp.newHeight,
+        ), interpolation: cv.INTER_LINEAR)
       : src;
 
-  final bool needsPad = lbp.padTop != 0 ||
+  final bool needsPad =
+      lbp.padTop != 0 ||
       lbp.padBottom != 0 ||
       lbp.padLeft != 0 ||
       lbp.padRight != 0;
@@ -354,11 +352,11 @@ List<Detection> _detectionLetterboxRemoval(
   double clamp01(double v) => v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
 
   RectF unpad(RectF r) => RectF(
-        clamp01((r.xmin - pl) / sx),
-        clamp01((r.ymin - pt) / sy),
-        clamp01((r.xmax - pl) / sx),
-        clamp01((r.ymax - pt) / sy),
-      );
+    clamp01((r.xmin - pl) / sx),
+    clamp01((r.ymin - pt) / sy),
+    clamp01((r.xmax - pl) / sx),
+    clamp01((r.ymax - pt) / sy),
+  );
 
   // Boxes that landed in the padding region collapse to zero width or
   // height after clamping; drop them so callers never see degenerate boxes.
@@ -388,8 +386,7 @@ List<Detection> _detectionLetterboxRemoval(
 List<Detection> testDetectionLetterboxRemoval(
   List<Detection> dets,
   List<double> padding,
-) =>
-    _detectionLetterboxRemoval(dets, padding);
+) => _detectionLetterboxRemoval(dets, padding);
 
 /// Applies score threshold, category allow/deny lists, and max-results cap.
 ///
@@ -434,5 +431,4 @@ List<Detection> testApplyOptions(
   List<Detection> detections,
   ObjectDetectorOptions options,
   List<String> labels,
-) =>
-    _applyOptions(detections, options, labels);
+) => _applyOptions(detections, options, labels);

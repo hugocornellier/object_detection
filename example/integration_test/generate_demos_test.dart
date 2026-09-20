@@ -32,8 +32,10 @@ void main() {
     const smooth = bool.fromEnvironment('SMOOTH', defaultValue: true);
     // Comma-separated category allowlist, e.g. CATEGORIES="sports ball,person".
     // Empty means no category filtering.
-    const categoriesCsv =
-        String.fromEnvironment('CATEGORIES', defaultValue: '');
+    const categoriesCsv = String.fromEnvironment(
+      'CATEGORIES',
+      defaultValue: '',
+    );
     final allowlist = categoriesCsv
         .split(',')
         .map((s) => s.trim())
@@ -47,17 +49,20 @@ void main() {
 
     Directory(outputDir).createSync(recursive: true);
 
-    final inputs = Directory(inputDir)
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.toLowerCase().endsWith('.mp4'))
-        .toList()
-      ..sort((a, b) => a.path.compareTo(b.path));
+    final inputs =
+        Directory(inputDir)
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.path.toLowerCase().endsWith('.mp4'))
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
 
     // ignore: avoid_print
-    print('[demos] ${inputs.length} inputs, model=Lite2 score=$score '
-        'maxResults=$maxResults thickness=${thickness}x smooth=$smooth '
-        'allowlist=$allowlist');
+    print(
+      '[demos] ${inputs.length} inputs, model=Lite2 score=$score '
+      'maxResults=$maxResults thickness=${thickness}x smooth=$smooth '
+      'allowlist=$allowlist',
+    );
 
     final detector = await ObjectDetector.create(
       model: ObjectDetectionModel.efficientDetLite2,
@@ -95,10 +100,12 @@ void main() {
             ? res.frames * 1000 / sw.elapsedMilliseconds
             : 0.0;
         // ignore: avoid_print
-        print('[demos] DONE (${i + 1}/${inputs.length}) $name  '
-            '${res.width}x${res.height} frames=${res.frames} '
-            '${(sw.elapsedMilliseconds / 1000).toStringAsFixed(1)}s '
-            '${procFps.toStringAsFixed(1)}fps');
+        print(
+          '[demos] DONE (${i + 1}/${inputs.length}) $name  '
+          '${res.width}x${res.height} frames=${res.frames} '
+          '${(sw.elapsedMilliseconds / 1000).toStringAsFixed(1)}s '
+          '${procFps.toStringAsFixed(1)}fps',
+        );
       } catch (e) {
         // ignore: avoid_print
         print('[demos] FAILED $name: $e');
@@ -108,7 +115,8 @@ void main() {
     await detector.dispose();
     // ignore: avoid_print
     print(
-        '[demos] ALL DONE in ${(overall.elapsedMilliseconds / 1000).toStringAsFixed(1)}s '
-        '-> $outputDir');
+      '[demos] ALL DONE in ${(overall.elapsedMilliseconds / 1000).toStringAsFixed(1)}s '
+      '-> $outputDir',
+    );
   }, timeout: const Timeout(Duration(minutes: 90)));
 }

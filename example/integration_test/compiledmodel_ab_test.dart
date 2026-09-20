@@ -36,12 +36,7 @@ double _meanMs(List<int> us) => us.reduce((a, b) => a + b) / us.length / 1000.0;
 
 void _emit(String label, List<int> us) {
   print(
-    'BENCH_JSON ${jsonEncode({
-          'label': label,
-          'n': us.length,
-          'mean_ms': double.parse(_meanMs(us).toStringAsFixed(4)),
-          'p50_ms': double.parse(_p50Ms(us).toStringAsFixed(4)),
-        })}',
+    'BENCH_JSON ${jsonEncode({'label': label, 'n': us.length, 'mean_ms': double.parse(_meanMs(us).toStringAsFixed(4)), 'p50_ms': double.parse(_p50Ms(us).toStringAsFixed(4))})}',
   );
   print(
     '  ${label.padRight(44)} p50=${_p50Ms(us).toStringAsFixed(3)}ms  '
@@ -76,8 +71,9 @@ void main() {
   for (final model in ObjectDetectionModel.values) {
     final tag = model.name;
 
-    testWidgets('[$tag] compiled vs interpreter agree and are faster',
-        (_) async {
+    testWidgets('[$tag] compiled vs interpreter agree and are faster', (
+      _,
+    ) async {
       final images = <String, Uint8List>{
         for (final p in kSamples)
           p: (await rootBundle.load(p)).buffer.asUint8List(),

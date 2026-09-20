@@ -5,14 +5,16 @@ void main() {
   group('generateEfficientDetAnchorsFlat', () {
     test('produces the anchor count each model expects', () {
       expect(
-        generateEfficientDetAnchorsFlat(imageSize: kEfficientDetLite0Size)
-                .length ~/
+        generateEfficientDetAnchorsFlat(
+              imageSize: kEfficientDetLite0Size,
+            ).length ~/
             4,
         19206,
       );
       expect(
-        generateEfficientDetAnchorsFlat(imageSize: kEfficientDetLite2Size)
-                .length ~/
+        generateEfficientDetAnchorsFlat(
+              imageSize: kEfficientDetLite2Size,
+            ).length ~/
             4,
         37629,
       );
@@ -36,8 +38,9 @@ void main() {
     });
 
     test('emits normalized centers and positive extents', () {
-      final flat =
-          generateEfficientDetAnchorsFlat(imageSize: kEfficientDetLite0Size);
+      final flat = generateEfficientDetAnchorsFlat(
+        imageSize: kEfficientDetLite0Size,
+      );
       for (int i = 0; i < flat.length; i += 4) {
         expect(flat[i], inInclusiveRange(0.0, 1.0), reason: 'cx at anchor $i');
         expect(
@@ -53,8 +56,9 @@ void main() {
     test('anchor box area grows with pyramid level', () {
       // P3 anchors (stride 8) come first and must be smaller than the P7
       // anchors (stride 128) that come last.
-      final flat =
-          generateEfficientDetAnchorsFlat(imageSize: kEfficientDetLite0Size);
+      final flat = generateEfficientDetAnchorsFlat(
+        imageSize: kEfficientDetLite0Size,
+      );
       final firstArea = flat[2] * flat[3];
       final lastArea = flat[flat.length - 2] * flat[flat.length - 1];
       expect(lastArea, greaterThan(firstArea));

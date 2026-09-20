@@ -283,10 +283,7 @@ class ObjectDetector {
     _validateOptions(options);
     final List<dynamic> result = await _sendDetectionRequest<List<dynamic>>(
       'detectCameraFrame',
-      _cameraFrameFields(frame, {
-        'options': options.toMap(),
-        'maxDim': maxDim,
-      }),
+      _cameraFrameFields(frame, {'options': options.toMap(), 'maxDim': maxDim}),
     );
     return _deserializeResults(result);
   }
@@ -344,13 +341,13 @@ class ObjectDetector {
   Future<T> _sendDetectionRequest<T>(
     String operation,
     Map<String, dynamic> params,
-  ) =>
-      _worker!.sendRequest<T>(operation, params);
+  ) => _worker!.sendRequest<T>(operation, params);
 
   static List<DetectedObject> _deserializeResults(List<dynamic> result) =>
       result
-          .map((m) =>
-              DetectedObject.fromMap(Map<String, dynamic>.from(m as Map)))
+          .map(
+            (m) => DetectedObject.fromMap(Map<String, dynamic>.from(m as Map)),
+          )
           .toList();
 
   static Uint8List _extractBytes(dynamic message) =>
@@ -383,16 +380,15 @@ class ObjectDetector {
   Map<String, dynamic> _cameraFrameFields(
     CameraFrame frame,
     Map<String, dynamic> extra,
-  ) =>
-      {
-        'bytes': TransferableTypedData.fromList([frame.bytes]),
-        'width': frame.width,
-        'height': frame.height,
-        'strideCols': frame.strideCols,
-        'conversion': frame.conversion.index,
-        'rotation': frame.rotation?.index,
-        ...extra,
-      };
+  ) => {
+    'bytes': TransferableTypedData.fromList([frame.bytes]),
+    'width': frame.width,
+    'height': frame.height,
+    'strideCols': frame.strideCols,
+    'conversion': frame.conversion.index,
+    'rotation': frame.rotation?.index,
+    ...extra,
+  };
 
   /// Decodes a [CameraFrame] message into a 3-channel BGR [cv.Mat] inside the
   /// detection isolate. Op ordering is tuned to keep big buffers small.
@@ -417,11 +413,10 @@ class ObjectDetector {
     cv.Mat maybeResize(cv.Mat m) {
       if (maxDim == null || (m.cols <= maxDim && m.rows <= maxDim)) return m;
       final double scale = maxDim / (m.cols > m.rows ? m.cols : m.rows);
-      final resized = cv.resize(
-        m,
-        ((m.cols * scale).toInt(), (m.rows * scale).toInt()),
-        interpolation: cv.INTER_LINEAR,
-      );
+      final resized = cv.resize(m, (
+        (m.cols * scale).toInt(),
+        (m.rows * scale).toInt(),
+      ), interpolation: cv.INTER_LINEAR);
       m.dispose();
       return resized;
     }
@@ -437,21 +432,25 @@ class ObjectDetector {
     switch (conversion) {
       case CameraFrameConversion.bgra2bgr:
       case CameraFrameConversion.rgba2bgr:
-        final bgraOrRgba =
-            _matFromBytes(height, strideCols, cv.MatType.CV_8UC4, bytes);
+        final bgraOrRgba = _matFromBytes(
+          height,
+          strideCols,
+          cv.MatType.CV_8UC4,
+          bytes,
+        );
         cv.Mat current = strideCols != width
             ? bgraOrRgba.region(cv.Rect(0, 0, width, height))
             : bgraOrRgba;
 
         if (maxDim != null &&
             (current.cols > maxDim || current.rows > maxDim)) {
-          final double scale = maxDim /
+          final double scale =
+              maxDim /
               (current.cols > current.rows ? current.cols : current.rows);
-          final resized = cv.resize(
-            current,
-            ((current.cols * scale).toInt(), (current.rows * scale).toInt()),
-            interpolation: cv.INTER_LINEAR,
-          );
+          final resized = cv.resize(current, (
+            (current.cols * scale).toInt(),
+            (current.rows * scale).toInt(),
+          ), interpolation: cv.INTER_LINEAR);
           if (!identical(current, bgraOrRgba)) current.dispose();
           current = resized;
         }
@@ -554,8 +553,9 @@ class ObjectDetector {
           numThreads: data.numThreads,
         ),
         useCompiledModel: data.useCompiledModel,
-        accelerators:
-            data.acceleratorIndices.map((i) => Accelerator.values[i]).toSet(),
+        accelerators: data.acceleratorIndices
+            .map((i) => Accelerator.values[i])
+            .toSet(),
         precision: Precision.values[data.precisionIndex],
       );
 

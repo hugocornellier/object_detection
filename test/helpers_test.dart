@@ -18,10 +18,10 @@ void main() {
 
   group('_applyOptions / testApplyOptions', () {
     Detection det(double s, int idx) => Detection(
-          boundingBox: const RectF(0, 0, 0.1, 0.1),
-          score: s,
-          classIndex: idx,
-        );
+      boundingBox: const RectF(0, 0, 0.1, 0.1),
+      score: s,
+      classIndex: idx,
+    );
 
     test('drops below scoreThreshold and sorts by score desc', () {
       final dets = [det(0.4, 0), det(0.9, 1), det(0.7, 2), det(0.3, 3)];
@@ -36,9 +36,7 @@ void main() {
     });
 
     test('respects maxResults', () {
-      final dets = [
-        for (int i = 0; i < 5; i++) det(0.9 - i * 0.1, i),
-      ];
+      final dets = [for (int i = 0; i < 5; i++) det(0.9 - i * 0.1, i)];
       final out = testApplyOptions(
         dets,
         const ObjectDetectorOptions(scoreThreshold: 0.0, maxResults: 3),

@@ -168,9 +168,9 @@ Future<({ObjectDetector detector, bool useCompiledModel})> createDetector({
 }
 
 String modelLabel(ObjectDetectionModel m) => switch (m) {
-      ObjectDetectionModel.efficientDetLite0 => 'Lite0',
-      ObjectDetectionModel.efficientDetLite2 => 'Lite2',
-    };
+  ObjectDetectionModel.efficientDetLite0 => 'Lite0',
+  ObjectDetectionModel.efficientDetLite2 => 'Lite2',
+};
 
 /// Curated COCO classes exposed as one-tap filter chips (allowlist). Empty
 /// selection means "all classes".
@@ -218,49 +218,47 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 28),
-                _buildSection(
-                  context,
-                  'Object Detection',
-                  [
-                    _buildModeCard(
+                _buildSection(context, 'Object Detection', [
+                  _buildModeCard(
+                    context,
+                    icon: Icons.videocam,
+                    title: 'Live Camera',
+                    description: 'Real-time object detection from camera feed',
+                    onTap: () => Navigator.push(
                       context,
-                      icon: Icons.videocam,
-                      title: 'Live Camera',
-                      description:
-                          'Real-time object detection from camera feed',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const LiveCameraScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const LiveCameraScreen(),
                       ),
                     ),
-                    _buildModeCard(
+                  ),
+                  _buildModeCard(
+                    context,
+                    icon: Icons.image,
+                    title: 'Still Image',
+                    description:
+                        'Detect objects in photos from gallery or samples',
+                    onTap: () => Navigator.push(
                       context,
-                      icon: Icons.image,
-                      title: 'Still Image',
-                      description:
-                          'Detect objects in photos from gallery or samples',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const StillImageScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const StillImageScreen(),
                       ),
                     ),
-                    _buildModeCard(
+                  ),
+                  _buildModeCard(
+                    context,
+                    icon: Icons.movie_creation_outlined,
+                    title: 'Video File',
+                    description:
+                        'Process an MP4 frame-by-frame with smoothed, '
+                        'tracked detections',
+                    onTap: () => Navigator.push(
                       context,
-                      icon: Icons.movie_creation_outlined,
-                      title: 'Video File',
-                      description:
-                          'Process an MP4 frame-by-frame with smoothed, '
-                          'tracked detections',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const VideoFileScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const VideoFileScreen(),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ]),
               ],
             ),
           ),
@@ -284,9 +282,9 @@ class HomeScreen extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[700],
-                ),
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -327,16 +325,17 @@ class HomeScreen extends StatelessWidget {
               children: [
                 Icon(icon, size: 40, color: Colors.indigo),
                 const SizedBox(height: 12),
-                Text(title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                    textAlign: TextAlign.center),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 6),
                 Text(
                   description,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: Colors.grey[600]),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -408,10 +407,10 @@ class _StillImageScreenState extends State<StillImageScreen> {
   }
 
   ObjectDetectorOptions get _options => ObjectDetectorOptions(
-        scoreThreshold: _scoreThreshold,
-        maxResults: _maxResults,
-        categoryAllowlist: _allowClasses.toList(),
-      );
+    scoreThreshold: _scoreThreshold,
+    maxResults: _maxResults,
+    categoryAllowlist: _allowClasses.toList(),
+  );
 
   @override
   void dispose() {
@@ -421,8 +420,10 @@ class _StillImageScreenState extends State<StillImageScreen> {
 
   Future<void> _pickAndRun() async {
     final picker = ImagePicker();
-    final picked =
-        await picker.pickImage(source: ImageSource.gallery, imageQuality: 100);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 100,
+    );
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
     await _setBytes(bytes);
@@ -508,26 +509,36 @@ class _StillImageScreenState extends State<StillImageScreen> {
               if (rerun && _imageBytes != null) _runDetection(_imageBytes!);
             }
 
-            Widget cb(String label, bool v, void Function(bool) set,
-                    {bool rerun = false}) =>
-                CompactCheckbox(
-                    label: label,
-                    value: v,
-                    onChanged: (x) =>
-                        update(() => set(x ?? false), rerun: rerun));
-            Widget sl(String label, double v, double mn, double mx,
-                    void Function(double) set, {bool rerun = false}) =>
-                CompactSlider(
-                    label: label,
-                    value: v,
-                    min: mn,
-                    max: mx,
-                    onChanged: (x) => update(() => set(x), rerun: rerun));
+            Widget cb(
+              String label,
+              bool v,
+              void Function(bool) set, {
+              bool rerun = false,
+            }) => CompactCheckbox(
+              label: label,
+              value: v,
+              onChanged: (x) => update(() => set(x ?? false), rerun: rerun),
+            );
+            Widget sl(
+              String label,
+              double v,
+              double mn,
+              double mx,
+              void Function(double) set, {
+              bool rerun = false,
+            }) => CompactSlider(
+              label: label,
+              value: v,
+              min: mn,
+              max: mx,
+              onChanged: (x) => update(() => set(x), rerun: rerun),
+            );
 
             return Material(
               color: Colors.white,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
               child: Column(
                 children: [
                   Container(
@@ -545,28 +556,41 @@ class _StillImageScreenState extends State<StillImageScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       children: [
                         ExpansionTile(
-                          title: const Text('Display Options',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          title: const Text(
+                            'Display Options',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           initiallyExpanded: true,
                           children: [
                             Wrap(
                               spacing: 8,
                               runSpacing: 4,
                               children: [
-                                cb('Bounding Boxes', _showBoundingBoxes,
-                                    (v) => _showBoundingBoxes = v),
-                                cb('Labels', _showLabels,
-                                    (v) => _showLabels = v),
-                                cb('Per-class colors', _perClassColors,
-                                    (v) => _perClassColors = v),
+                                cb(
+                                  'Bounding Boxes',
+                                  _showBoundingBoxes,
+                                  (v) => _showBoundingBoxes = v,
+                                ),
+                                cb(
+                                  'Labels',
+                                  _showLabels,
+                                  (v) => _showLabels = v,
+                                ),
+                                cb(
+                                  'Per-class colors',
+                                  _perClassColors,
+                                  (v) => _perClassColors = v,
+                                ),
                               ],
                             ),
                             const SizedBox(height: 8),
                           ],
                         ),
                         ExpansionTile(
-                          title: const Text('Colors',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          title: const Text(
+                            'Colors',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           children: [
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -580,32 +604,58 @@ class _StillImageScreenState extends State<StillImageScreen> {
                           ],
                         ),
                         ExpansionTile(
-                          title: const Text('Sizes',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          title: const Text(
+                            'Sizes',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           children: [
-                            sl('Box thickness', _boundingBoxThickness, 0.5,
-                                10.0, (v) => _boundingBoxThickness = v),
-                            sl('Label size', _labelFontSize, 8.0, 28.0,
-                                (v) => _labelFontSize = v),
+                            sl(
+                              'Box thickness',
+                              _boundingBoxThickness,
+                              0.5,
+                              10.0,
+                              (v) => _boundingBoxThickness = v,
+                            ),
+                            sl(
+                              'Label size',
+                              _labelFontSize,
+                              8.0,
+                              28.0,
+                              (v) => _labelFontSize = v,
+                            ),
                             const SizedBox(height: 8),
                           ],
                         ),
                         ExpansionTile(
-                          title: const Text('Detection',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          title: const Text(
+                            'Detection',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           children: [
-                            sl('Score threshold', _scoreThreshold, 0.0, 1.0,
-                                (v) => _scoreThreshold = v,
-                                rerun: true),
-                            sl('Max results', _maxResults.toDouble(), 1.0, 30.0,
-                                (v) => _maxResults = v.round(),
-                                rerun: true),
+                            sl(
+                              'Score threshold',
+                              _scoreThreshold,
+                              0.0,
+                              1.0,
+                              (v) => _scoreThreshold = v,
+                              rerun: true,
+                            ),
+                            sl(
+                              'Max results',
+                              _maxResults.toDouble(),
+                              1.0,
+                              30.0,
+                              (v) => _maxResults = v.round(),
+                              rerun: true,
+                            ),
                             const SizedBox(height: 8),
                           ],
                         ),
                         ExpansionTile(
-                          title: const Text('Class filter',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          title: const Text(
+                            'Class filter',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           subtitle: Text(
                             _allowClasses.isEmpty
                                 ? 'All classes'
@@ -705,8 +755,10 @@ class _StillImageScreenState extends State<StillImageScreen> {
                             final Rect imageRect = Alignment.center.inscribe(
                               renderSize,
                               Offset.zero &
-                                  Size(constraints.maxWidth,
-                                      constraints.maxHeight),
+                                  Size(
+                                    constraints.maxWidth,
+                                    constraints.maxHeight,
+                                  ),
                             );
                             return Stack(
                               children: [
@@ -723,8 +775,12 @@ class _StillImageScreenState extends State<StillImageScreen> {
                                   child: CustomPaint(
                                     painter: DetectionsPainter(
                                       detections: _detections,
-                                      imageRectOnCanvas: Rect.fromLTWH(0, 0,
-                                          imageRect.width, imageRect.height),
+                                      imageRectOnCanvas: Rect.fromLTWH(
+                                        0,
+                                        0,
+                                        imageRect.width,
+                                        imageRect.height,
+                                      ),
                                       originalImageSize: _originalSize!,
                                       showBoundingBoxes: _showBoundingBoxes,
                                       showLabels: _showLabels,
@@ -745,16 +801,27 @@ class _StillImageScreenState extends State<StillImageScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.add_photo_alternate,
-                                  size: 80, color: Colors.grey[300]),
+                              Icon(
+                                Icons.add_photo_alternate,
+                                size: 80,
+                                color: Colors.grey[300],
+                              ),
                               const SizedBox(height: 16),
-                              Text('No image selected',
-                                  style: TextStyle(
-                                      fontSize: 18, color: Colors.grey[600])),
+                              Text(
+                                'No image selected',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
                               const SizedBox(height: 8),
-                              Text('Tap a sample below or pick an image',
-                                  style: TextStyle(
-                                      fontSize: 14, color: Colors.grey[500])),
+                              Text(
+                                'Tap a sample below or pick an image',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -786,8 +853,9 @@ class _StillImageScreenState extends State<StillImageScreen> {
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, i) => ActionChip(
                 label: Text(_samples[i].$1),
-                onPressed:
-                    _isLoading ? null : () => _loadSample(_samples[i].$2),
+                onPressed: _isLoading
+                    ? null
+                    : () => _loadSample(_samples[i].$2),
               ),
             ),
           ),
@@ -902,15 +970,13 @@ class _InferenceMetric extends StatelessWidget {
   final String label;
   final num? microseconds;
 
-  const _InferenceMetric({
-    required this.label,
-    required this.microseconds,
-  });
+  const _InferenceMetric({required this.label, required this.microseconds});
 
   @override
   Widget build(BuildContext context) {
-    final value =
-        microseconds == null ? '—' : formatInferenceMilliseconds(microseconds!);
+    final value = microseconds == null
+        ? '—'
+        : formatInferenceMilliseconds(microseconds!);
     return Semantics(
       label: microseconds == null
           ? '$label inference time unavailable'
@@ -1024,11 +1090,11 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
       _accelerometerSub = accelerometerEventStream().listen((event) {
         final next = event.x.abs() > event.y.abs()
             ? (event.x > 0
-                ? DeviceOrientation.landscapeLeft
-                : DeviceOrientation.landscapeRight)
+                  ? DeviceOrientation.landscapeLeft
+                  : DeviceOrientation.landscapeRight)
             : (event.y > 0
-                ? DeviceOrientation.portraitUp
-                : DeviceOrientation.portraitDown);
+                  ? DeviceOrientation.portraitUp
+                  : DeviceOrientation.portraitDown);
         if (next == DeviceOrientation.portraitDown &&
             (_deviceOrientation == DeviceOrientation.landscapeLeft ||
                 _deviceOrientation == DeviceOrientation.landscapeRight)) {
@@ -1069,9 +1135,9 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No cameras available')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('No cameras available')));
         }
         return;
       }
@@ -1121,17 +1187,20 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
   bool get _canSwitchCamera {
     if (kIsWeb) return false;
     if (!(Platform.isAndroid || Platform.isIOS)) return false;
-    final hasFront = _availableCameras
-        .any((c) => c.lensDirection == CameraLensDirection.front);
-    final hasBack = _availableCameras
-        .any((c) => c.lensDirection == CameraLensDirection.back);
+    final hasFront = _availableCameras.any(
+      (c) => c.lensDirection == CameraLensDirection.front,
+    );
+    final hasBack = _availableCameras.any(
+      (c) => c.lensDirection == CameraLensDirection.back,
+    );
     return hasFront && hasBack;
   }
 
   Future<void> _switchCamera() async {
     if (_isSwitchingCamera || !_canSwitchCamera) return;
-    final target =
-        _isFrontCamera ? CameraLensDirection.back : CameraLensDirection.front;
+    final target = _isFrontCamera
+        ? CameraLensDirection.back
+        : CameraLensDirection.front;
     final next = _availableCameras.firstWhere(
       (c) => c.lensDirection == target,
       orElse: () => _availableCameras.first,
@@ -1249,9 +1318,10 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
     final effectiveOrientation = _effectiveDeviceOrientation(context);
     final bool isPortrait =
         effectiveOrientation == DeviceOrientation.portraitUp ||
-            effectiveOrientation == DeviceOrientation.portraitDown;
-    final double displayAspectRatio =
-        isPortrait ? 1.0 / cameraAspectRatio : cameraAspectRatio;
+        effectiveOrientation == DeviceOrientation.portraitDown;
+    final double displayAspectRatio = isPortrait
+        ? 1.0 / cameraAspectRatio
+        : cameraAspectRatio;
     final int turns = barQuarterTurns(_deviceOrientation);
     final bool mirrorOverlay =
         (Platform.isAndroid && _isFrontCamera) || Platform.isWindows;
@@ -1281,10 +1351,11 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
     final barExtent = isMobile ? _mobileTopBarExtent : kToolbarHeight;
     if (turns == 0) {
       return Positioned(
-          top: padding.top,
-          left: padding.left,
-          right: padding.right,
-          child: bar);
+        top: padding.top,
+        left: padding.left,
+        right: padding.right,
+        child: bar,
+      );
     }
     return Positioned(
       top: padding.top,
@@ -1426,12 +1497,14 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
             color: selected ? Colors.blue : Colors.white12,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(label,
-              style: TextStyle(
-                color: selected ? Colors.white : Colors.white70,
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-              )),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.white70,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
         ),
       );
     }
@@ -1452,7 +1525,9 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
               children: [
                 chip(ObjectDetectionModel.efficientDetLite0, 'Lite0 (fast)'),
                 chip(
-                    ObjectDetectionModel.efficientDetLite2, 'Lite2 (accurate)'),
+                  ObjectDetectionModel.efficientDetLite2,
+                  'Lite2 (accurate)',
+                ),
               ],
             ),
             const Divider(color: Colors.white24, height: 24),
@@ -1468,8 +1543,10 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
             Row(
               children: [
                 const Expanded(
-                  child: Text('Labels',
-                      style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  child: Text(
+                    'Labels',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
                 ),
                 Switch(
                   value: _showLabels,
@@ -1687,15 +1764,18 @@ class _VideoFileScreenState extends State<VideoFileScreen> {
     } catch (e) {
       String hint = '';
       if (Platform.isLinux) {
-        hint = '\n\nLinux requires GStreamer plugins. Try:\n'
+        hint =
+            '\n\nLinux requires GStreamer plugins. Try:\n'
             '  sudo apt install gstreamer1.0-libav '
             'gstreamer1.0-plugins-good gstreamer1.0-plugins-bad';
       }
       if (mounted) {
-        setState(() => _errorMessage =
-            'Could not process video: $e\n\nThe format may be unsupported by '
-                'the OS video backend, or the "avc1" (H.264) writer may be '
-                'unavailable.$hint');
+        setState(
+          () => _errorMessage =
+              'Could not process video: $e\n\nThe format may be unsupported by '
+              'the OS video backend, or the "avc1" (H.264) writer may be '
+              'unavailable.$hint',
+        );
       }
     } finally {
       _wallClock.stop();
@@ -1758,8 +1838,10 @@ class _VideoFileScreenState extends State<VideoFileScreen> {
               color: Colors.red[50],
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text(_errorMessage!,
-                    style: const TextStyle(color: Colors.red)),
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
               ),
             ),
           _buildSettingsCard(),
@@ -1785,14 +1867,18 @@ class _VideoFileScreenState extends State<VideoFileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_statusMessage!,
-                        style: const TextStyle(fontWeight: FontWeight.w500)),
+                    Text(
+                      _statusMessage!,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
                     const SizedBox(height: 4),
                     Text(_summaryText()),
                     if (_outputPath != null) ...[
                       const SizedBox(height: 8),
-                      SelectableText('Output: $_outputPath',
-                          style: const TextStyle(fontSize: 12)),
+                      SelectableText(
+                        'Output: $_outputPath',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ],
                   ],
                 ),
@@ -1819,8 +1905,10 @@ class _VideoFileScreenState extends State<VideoFileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Options',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              'Options',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 4),
             Wrap(
               spacing: 12,
@@ -1895,8 +1983,10 @@ class _VideoFileScreenState extends State<VideoFileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Processing frame $_processedFrames'
-                '${_totalFrames > 0 ? ' / $_totalFrames' : ''}'),
+            Text(
+              'Processing frame $_processedFrames'
+              '${_totalFrames > 0 ? ' / $_totalFrames' : ''}',
+            ),
             const SizedBox(height: 8),
             LinearProgressIndicator(value: _totalFrames > 0 ? pct : null),
             const SizedBox(height: 12),
@@ -1940,8 +2030,10 @@ class VideoResultCard extends StatelessWidget {
                 const Icon(Icons.check_circle, color: Colors.green),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(statusMessage,
-                      style: const TextStyle(fontWeight: FontWeight.w500)),
+                  child: Text(
+                    statusMessage,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
                 ),
               ],
             ),
@@ -1976,8 +2068,10 @@ class VideoPlayerChrome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double maxPreviewHeight =
-        math.max(120.0, MediaQuery.sizeOf(context).height * 0.45);
+    final double maxPreviewHeight = math.max(
+      120.0,
+      MediaQuery.sizeOf(context).height * 0.45,
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1992,7 +2086,10 @@ class VideoPlayerChrome extends StatelessWidget {
                 aspectRatio: aspectRatio,
                 child: Stack(
                   fit: StackFit.expand,
-                  children: [Container(color: Colors.black), video],
+                  children: [
+                    Container(color: Colors.black),
+                    video,
+                  ],
                 ),
               ),
             ),
@@ -2130,7 +2227,9 @@ class _ColorPickerButton extends StatelessWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
               onColorChanged(temp);

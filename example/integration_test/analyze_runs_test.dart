@@ -26,8 +26,10 @@ void main() {
     const inputDir = String.fromEnvironment('INPUT_DIR');
     const scorePct = int.fromEnvironment('SCORE', defaultValue: 60);
     const maxResults = int.fromEnvironment('MAX_RESULTS', defaultValue: 3);
-    const categoriesCsv =
-        String.fromEnvironment('CATEGORIES', defaultValue: '');
+    const categoriesCsv = String.fromEnvironment(
+      'CATEGORIES',
+      defaultValue: '',
+    );
     final allowlist = categoriesCsv
         .split(',')
         .map((s) => s.trim())
@@ -46,12 +48,13 @@ void main() {
       categoryAllowlist: allowlist,
     );
 
-    final inputs = Directory(inputDir)
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.toLowerCase().endsWith('.mp4'))
-        .toList()
-      ..sort((a, b) => a.path.compareTo(b.path));
+    final inputs =
+        Directory(inputDir)
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.path.toLowerCase().endsWith('.mp4'))
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
 
     // ignore: avoid_print
     print('[runs] score=$score maxResults=$maxResults allowlist=$allowlist');
@@ -77,9 +80,11 @@ void main() {
         if (!ok || frame.isEmpty) break;
         final raw = await detector.detectFromMat(frame, options: options);
         presence.add(raw.isNotEmpty);
-        scores.add(raw.isEmpty
-            ? 0.0
-            : raw.map((d) => d.score).reduce((a, b) => a > b ? a : b));
+        scores.add(
+          raw.isEmpty
+              ? 0.0
+              : raw.map((d) => d.score).reduce((a, b) => a > b ? a : b),
+        );
       }
       cap.release();
       frame.dispose();
@@ -108,11 +113,12 @@ void main() {
       final detFrames = presence.where((x) => x).length;
       // ignore: avoid_print
       print(
-          '[runs] $name  fps=${f.toStringAsFixed(1)} frames=${presence.length} '
-          'detected=$detFrames (${(100 * detFrames / (presence.isEmpty ? 1 : presence.length)).toStringAsFixed(0)}%) '
-          'LONGEST=${bestLen}f=${(bestLen / f).toStringAsFixed(2)}s '
-          '@${(bestStart / f).toStringAsFixed(2)}s '
-          '${bestLen / f >= 3.0 ? "<<< >=3s" : ""}');
+        '[runs] $name  fps=${f.toStringAsFixed(1)} frames=${presence.length} '
+        'detected=$detFrames (${(100 * detFrames / (presence.isEmpty ? 1 : presence.length)).toStringAsFixed(0)}%) '
+        'LONGEST=${bestLen}f=${(bestLen / f).toStringAsFixed(2)}s '
+        '@${(bestStart / f).toStringAsFixed(2)}s '
+        '${bestLen / f >= 3.0 ? "<<< >=3s" : ""}',
+      );
       // Every run >= 1.5s, with its window and mean score.
       for (final r in runs) {
         final dur = r[1] / f;
@@ -124,8 +130,9 @@ void main() {
           final mean = sum / r[1];
           // ignore: avoid_print
           print(
-              '    run ${(r[0] / f).toStringAsFixed(2)}s..${((r[0] + r[1]) / f).toStringAsFixed(2)}s '
-              '(${dur.toStringAsFixed(2)}s, ${r[1]}f) meanScore=${(mean * 100).toStringAsFixed(0)}%');
+            '    run ${(r[0] / f).toStringAsFixed(2)}s..${((r[0] + r[1]) / f).toStringAsFixed(2)}s '
+            '(${dur.toStringAsFixed(2)}s, ${r[1]}f) meanScore=${(mean * 100).toStringAsFixed(0)}%',
+          );
         }
       }
     }

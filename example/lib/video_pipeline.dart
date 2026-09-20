@@ -15,10 +15,10 @@ import 'package:opencv_dart/opencv.dart' as cv;
 
 /// Converts a Flutter [Color] to an OpenCV BGR scalar (alpha ignored).
 cv.Scalar _bgr(Color c) => cv.Scalar(
-      (c.b * 255).roundToDouble(),
-      (c.g * 255).roundToDouble(),
-      (c.r * 255).roundToDouble(),
-    );
+  (c.b * 255).roundToDouble(),
+  (c.g * 255).roundToDouble(),
+  (c.r * 255).roundToDouble(),
+);
 
 /// Box stroke thickness derived from frame resolution so boxes read the same
 /// at 480p and 4K. Scaled by [thicknessScale] (a user multiplier, default 1).
@@ -49,15 +49,19 @@ void drawObjectsOnMat(
   if (dets.isEmpty) return;
   final int w = mat.cols;
   final int h = mat.rows;
-  final int thickness =
-      resolutionThickness(w, h, thicknessScale: thicknessScale);
+  final int thickness = resolutionThickness(
+    w,
+    h,
+    thicknessScale: thicknessScale,
+  );
   final double fontScale = _resolutionFontScale(w, h);
   final int fontThickness = math.max(1, (thickness * 0.55).round());
   final white = cv.Scalar(255, 255, 255);
 
   for (final obj in dets) {
-    final color =
-        _bgr(perClassColors ? colorForClass(obj.category.index) : boxColor);
+    final color = _bgr(
+      perClassColors ? colorForClass(obj.category.index) : boxColor,
+    );
     final bb = obj.boundingBox;
     final l = bb.topLeft.x.toInt().clamp(0, w - 1);
     final t = bb.topLeft.y.toInt().clamp(0, h - 1);
@@ -77,13 +81,21 @@ void drawObjectsOnMat(
       final label =
           '${obj.categoryName} ${(obj.score * 100).toStringAsFixed(0)}%';
       final (sz, _) = cv.getTextSize(
-          label, cv.FONT_HERSHEY_SIMPLEX, fontScale, fontThickness);
+        label,
+        cv.FONT_HERSHEY_SIMPLEX,
+        fontScale,
+        fontThickness,
+      );
       final pad = (fontScale * 6).round();
       final labelTop = (t - sz.height - pad * 2).clamp(0, h - 1);
       final labelW = (sz.width + pad * 2).clamp(1, w - l);
       final labelH = (sz.height + pad * 2).clamp(1, h - labelTop);
-      cv.rectangle(mat, cv.Rect(l, labelTop, labelW, labelH), color,
-          thickness: -1);
+      cv.rectangle(
+        mat,
+        cv.Rect(l, labelTop, labelW, labelH),
+        color,
+        thickness: -1,
+      );
       cv.putText(
         mat,
         label,
@@ -105,7 +117,7 @@ void drawObjectsOnMat(
 /// [onProgress] is called every few frames with (processed, total). [shouldCancel]
 /// is polled each frame to allow early termination.
 Future<({int frames, int width, int height, double fps, int total})>
-    processVideoFile({
+processVideoFile({
   required ObjectDetector detector,
   required String inputPath,
   required String outputPath,
@@ -134,8 +146,10 @@ Future<({int frames, int width, int height, double fps, int total})>
   final outFile = File(outputPath);
   if (outFile.existsSync()) outFile.deleteSync();
 
-  final writer =
-      cv.VideoWriter.fromFile(outputPath, 'avc1', fps, (width, height));
+  final writer = cv.VideoWriter.fromFile(outputPath, 'avc1', fps, (
+    width,
+    height,
+  ));
   if (!writer.isOpened) {
     cap.release();
     writer.release();
@@ -298,9 +312,11 @@ class ObjectSmoother {
     final iw = math.max(0.0, r - l);
     final ih = math.max(0.0, bo - t);
     final inter = iw * ih;
-    final aa = math.max(0.0, box.bottomRight.x - box.topLeft.x) *
+    final aa =
+        math.max(0.0, box.bottomRight.x - box.topLeft.x) *
         math.max(0.0, box.bottomRight.y - box.topLeft.y);
-    final bb = math.max(0.0, b.lastRight - b.lastLeft) *
+    final bb =
+        math.max(0.0, b.lastRight - b.lastLeft) *
         math.max(0.0, b.lastBottom - b.lastTop);
     final union = aa + bb - inter;
     if (union <= 0) return 0;

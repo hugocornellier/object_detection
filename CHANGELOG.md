@@ -1,3 +1,10 @@
+## 1.1.0
+
+* Depend on `flutter_litert ^3.9.1`, which updates Android's CompiledModel
+  runtime to LiteRT Next 2.2.0.
+* The example app depends on `camera_desktop ^1.2.2`.
+* No API changes.
+
 ## 1.0.0
 
 * First stable release. The API has been unchanged across the 0.4.x line and is

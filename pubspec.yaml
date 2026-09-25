@@ -1,6 +1,6 @@
 name: object_detection
 description: "On-device object detection using MediaPipe EfficientDet-Lite models in LiteRT (formerly TensorFlow Lite) format. 80 COCO classes, fully offline."
-version: 1.1.0
+version: 1.1.1
 
 repository: https://github.com/hugocornellier/object_detection
 homepage: https://github.com/hugocornellier/object_detection

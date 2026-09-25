@@ -1,3 +1,17 @@
+## 1.1.1
+
+* `detectFromCameraImage` now reads a desktop frame's byte order from
+  `CameraImage.format.raw` instead of assuming BGRA only on macOS, so camera
+  streams decode correctly on camera_desktop 2.0.0 (BGRA on every desktop
+  platform) as well as 1.x (RGBA on Linux and Windows). Linux and Windows
+  frames from camera_desktop 2.0.0 were previously decoded with red and blue
+  swapped. Other `format.raw` values keep the old default, and an explicit
+  `isBgra` still wins, so drop any `isBgra: Platform.isMacOS` you pass.
+* Depend on `flutter_litert ^3.9.2`, which provides the frame-based default.
+* The example app depends on `camera_desktop ^2.0.0`.
+* No API changes apart from a `@visibleForTesting` `testMatFromCameraFrame`
+  helper for the package's own tests.
+
 ## 1.1.0
 
 * Depend on `flutter_litert ^3.9.1`, which updates Android's CompiledModel

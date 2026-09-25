@@ -294,6 +294,14 @@ class ObjectDetector {
   /// `width`, `height`, and `planes` with `bytes` / `bytesPerRow` /
   /// `bytesPerPixel`) and runs YUV packing, colour conversion, rotation,
   /// and downscale in the detection isolate, all off the UI thread.
+  ///
+  /// [isBgra] selects BGRA vs. RGBA for the desktop single-plane path; ignored
+  /// for YUV input (Android/iOS). When omitted, the byte order is read from the
+  /// frame's `format.raw`: `'BGRA'` (camera_desktop 2.x on every desktop
+  /// platform) selects BGRA and `'RGBA'` (camera_desktop 1.x on Linux and
+  /// Windows) selects RGBA. Any other value falls back to BGRA on macOS and
+  /// RGBA elsewhere. Only pass this explicitly if you are using a non-standard
+  /// camera plugin that delivers a different format.
   Future<List<DetectedObject>> detectFromCameraImage(
     Object cameraImage, {
     ObjectDetectorOptions options = ObjectDetectorOptions.defaults,
@@ -305,7 +313,7 @@ class ObjectDetector {
     final frame = prepareCameraFrameFromImage(
       cameraImage,
       rotation: rotation,
-      isBgra: isBgra ?? Platform.isMacOS,
+      isBgra: isBgra,
     );
     if (frame == null) return const <DetectedObject>[];
     return detectFromCameraFrame(frame, options: options, maxDim: maxDim);

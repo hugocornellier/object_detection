@@ -178,6 +178,15 @@ List<List<double>> testGenerateEfficientDetAnchors({required int imageSize}) =>
 @visibleForTesting
 String testNameFor(ObjectDetectionModel m) => _nameFor(m);
 
+/// Test-only: decodes [frame] into a BGR [cv.Mat] the way the detection
+/// isolate does, via the private camera-frame decode.
+@visibleForTesting
+cv.Mat testMatFromCameraFrame(CameraFrame frame, {int? maxDim}) =>
+    ObjectDetector._matFromCameraFrameMessage(
+      cameraFrameRpcFields(frame, {'maxDim': maxDim}),
+      frame.bytes,
+    );
+
 /// Reads the bundled COCO labelmap (`labelmap.txt`) from package assets.
 ///
 /// Returns the list of label strings, indexable by class index. Some entries

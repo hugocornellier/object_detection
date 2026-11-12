@@ -8,6 +8,12 @@
   clears pub.dev's "Legacy Kotlin configuration" note.
 * The example app builds on Flutter 3.50 (Gradle 9.5.0, AGP 9.3.1,
   Kotlin 2.4.20).
+* Depend on `flutter_litert ^4.1.1` (was `^3.9.2`). This package's API is
+  unchanged, but flutter_litert 4.x needs Android `minSdk` 24 and iOS 15.0,
+  Flutter's defaults for new apps.
+* Android: flutter_litert 4.0.0 removed the Interpreter GPU delegate, so
+  `PerformanceConfig.gpu()` runs XNNPACK there. Use `useCompiledModel: true`
+  for the GPU on Android.
 * No API changes.
 
 ## 1.1.1

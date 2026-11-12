@@ -1,3 +1,15 @@
+## 1.1.2
+
+* Ready for Flutter 3.50: the package analyzes clean again now that
+  Flutter deprecates `package:flutter/material.dart`, so pub.dev keeps its
+  static analysis points.
+* Removed the plugin's unused Android Gradle project. Android has always
+  used the Dart plugin class, so the Gradle project was never built. This
+  clears pub.dev's "Legacy Kotlin configuration" note.
+* The example app builds on Flutter 3.50 (Gradle 9.5.0, AGP 9.3.1,
+  Kotlin 2.4.20).
+* No API changes.
+
 ## 1.1.1
 
 * `detectFromCameraImage` now reads a desktop frame's byte order from
